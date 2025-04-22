@@ -41,24 +41,28 @@ func (r *PostRepository) GetByID(ctx context.Context, id int64) (*models.Post, e
 // GetAll возвращает все посты с возможной фильтрацией
 func (r *PostRepository) GetAll(ctx context.Context, limit, offset int, archived bool) ([]*models.Post, error) {
 	// TODO: реализовать получение всех постов из БД
-	slog.Info("Заглушка: получение всех постов", "limit", limit, "offset", offset, "archived", archived)
+	query := `SELECT * FROM posts WHERE is_archived = $3 ORDER BY created_at DESC LIMIT $1 OFFSET $2`
 
-	// Создаем несколько тестовых постов
-	posts := make([]*models.Post, 0, 3)
-	for i := int64(1); i <= 3; i++ {
-		posts = append(posts, &models.Post{
-			ID:         i,
-			Title:      "Пост " + string(rune(64+i)),
-			Content:    "Содержимое поста " + string(rune(64+i)),
-			ImageURL:   "https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png",
-			UserID:     1,
-			UserName:   "anonymous",
-			AvatarURL:  "https://rickandmortyapi.com/api/character/avatar/" + string(rune(48+i)) + ".jpeg",
-			CreatedAt:  time.Now().Add(-time.Duration(i) * 24 * time.Hour),
-			IsArchived: archived,
-		})
+	rows, err := r.db.QueryContext(ctx, query, limit, offset, archived)
+	if err != nil {
+		return nil, err
 	}
 
+	defer rows.Close()
+	var posts []*models.Post
+
+	for rows.Next() {
+		var post models.Post
+		err := rows.Scan(&post.ID, &post.Title, &post.Content, &post.ImageURL, &post.UserID, &post.UserName, &post.AvatarURL, &post.CreatedAt, &post.IsArchived)
+		if err != nil {
+			return nil, err
+		}
+		posts = append(posts, &post)
+	}
+	if err := rows.Err(); err != nil {
+		slog.Error("Ошибка при обработке строк из БД", "error", err)
+		return nil, err
+	}
 	return posts, nil
 }
 
