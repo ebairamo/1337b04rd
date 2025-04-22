@@ -3,12 +3,11 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"html/template"
 	"log"
 	"log/slog"
-	"net/http"
 	"os"
 
+	httpAdapter "1337b04rd/internal/adapters/primary/http"
 	"1337b04rd/internal/adapters/secondary/postgres"
 )
 
@@ -35,37 +34,17 @@ func Run() {
 		os.Exit(0)
 	}
 
-	// Настройка обработчиков
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Received request:", r.URL.Path)
-		var page string
-		name := r.FormValue("name")
-		subject := r.FormValue("subject")
-		comment := r.FormValue("comment")
-		file, fileHeader, err := r.FormFile("file")
-		fmt.Println("file:", file, "fileHeader:", fileHeader, "err:", err, "name:", name, "subject:", subject, "comment:", comment)
-		Pat := r.URL.Path
-		if Pat == "/" {
-			page = "templates" + "/" + "catalog.html"
-		} else {
-			page = "templates" + "/" + Pat
-		}
+	// Настройка логгера
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
 
-		tmpl, _ := template.ParseFiles(page)
-		tmpl.Execute(w, nil)
-	})
+	// Подключение к базе данных
+	db := postgres.Connect()
+	defer db.Close()
+	logger.Info("База данных подключена")
 
-	log.Println("Handler registered")
-
-	// Запуск сервера
-	addr := fmt.Sprintf(":%d", *port)
-	log.Println("Server starting on address:", addr)
-	logger.Info("Server started", "address", addr)
-
-	err := http.ListenAndServe(addr, nil)
-	if err != nil {
-		log.Println("Server failed to start:", err)
-		logger.Error("Server failed to start", "error", err)
-		os.Exit(1)
-	}
+	// Запускаем HTTP сервер с передачей порта и соединения с БД
+	httpAdapter.StartServer(*port, db)
 }
