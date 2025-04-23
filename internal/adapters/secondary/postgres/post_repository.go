@@ -1,11 +1,12 @@
 package postgres
 
 import (
-	"1337b04rd/internal/domain/models"
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
-	"time"
+
+	"1337b04rd/internal/domain/models"
 )
 
 // PostRepository реализует интерфейс репозитория постов для PostgreSQL
@@ -22,20 +23,37 @@ func NewPostRepository(db *sql.DB) *PostRepository {
 
 // GetByID возвращает пост по его ID
 func (r *PostRepository) GetByID(ctx context.Context, id int64) (*models.Post, error) {
-	// TODO: реализовать получение поста из БД
-	slog.Info("Заглушка: получение поста по ID", "id", id)
+	query := `SELECT 
+        id, title, content, image_url, user_id, user_name, avatar_url, created_at, is_archived 
+        FROM posts 
+        WHERE id = $1`
 
-	return &models.Post{
-		ID:         id,
-		Title:      "Тестовый пост",
-		Content:    "Это тестовое содержимое поста для заглушки репозитория",
-		ImageURL:   "https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png",
-		UserID:     1,
-		UserName:   "anonymous",
-		AvatarURL:  "https://rickandmortyapi.com/api/character/avatar/1.jpeg",
-		CreatedAt:  time.Now().Add(-24 * time.Hour), // Создан день назад
-		IsArchived: false,
-	}, nil
+	var post models.Post
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&post.ID, &post.Title, &post.Content, &post.ImageURL,
+		&post.UserID, &post.UserName, &post.AvatarURL,
+		&post.CreatedAt, &post.IsArchived)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			slog.Error("Пост не найден", "id", id)
+			return nil, fmt.Errorf("post with id %d not found", id)
+		}
+		slog.Error("Ошибка получения поста", "id", id, "error", err)
+		return nil, err
+	}
+
+	// Добавим более подробное логирование
+	slog.Info("Пост получен",
+		"id", post.ID,
+		"title", post.Title,
+		"content_length", len(post.Content),
+		"image_url", post.ImageURL,
+		"user_id", post.UserID,
+		"user_name", post.UserName,
+		"created_at", post.CreatedAt,
+		"is_archived", post.IsArchived)
+
+	return &post, nil
 }
 
 // GetAll возвращает все посты с возможной фильтрацией
