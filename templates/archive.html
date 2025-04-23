@@ -1,74 +1,177 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>1337b04rd</title>
+    <title>1337b04rd - Архив</title>
     <style>
-        /* Set the background color for the entire body */
         body {
-            background-color: #E6E9F5;
-            margin: 0;
             font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #E6E9F5;
+            color: #333;
+            line-height: 1.6;
         }
 
-        header, footer {
+        header {
             text-align: center;
-            padding: 10px 0;
+            padding: 20px 0;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .site-title {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .page-title {
+            font-size: 22px;
+            color: #555;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        nav {
+            margin: 10px 0;
         }
 
         nav a {
+            display: inline-block;
             margin: 0 10px;
             text-decoration: none;
-            color: blue;
+            color: #4a90e2;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
         }
+
         nav a:hover {
+            background-color: #f0f5ff;
             text-decoration: underline;
         }
 
-        /* Styles for the grid layout */
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+        }
+
         .post-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            padding: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 25px;
+            padding: 10px;
         }
 
         .post {
             background-color: white;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            padding: 10px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-            text-align: center;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .post:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        }
+
+        .post a {
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         .post img {
-            max-width: 100%;
-            height: auto;
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
             border-radius: 5px;
+            margin-bottom: 10px;
         }
-
+        
         .post-title {
-            font-size: 1.2em;
+            font-size: 18px;
+            font-weight: bold;
             margin: 10px 0;
+            color: #222;
+        }
+        
+        .post-meta {
+            font-size: 14px;
+            color: #777;
+            margin-top: auto;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        .archive-indicator {
+            display: inline-block;
+            background-color: #f1c40f;
+            color: #333;
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        
+        .no-posts {
+            text-align: center;
+            padding: 50px 30px;
+            font-style: italic;
+            color: #777;
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body>
 <header>
-    <h1>1337b04rd</h1>
-    <h1>Archive</h1>
-
+    <h1 class="site-title">1337b04rd</h1>
+    <h2 class="page-title">Архив</h2>
     <nav>
-        <!-- Navigation links -->
-        [<a href="catalog.html">Catalog</a>] |
-        [<a href="create-post.html">Create Post</a>]
+        [<a href="/catalog.html">Каталог</a>] |
+        [<a href="/create-post.html">Создать пост</a>]
     </nav>
 </header>
 <main>
     <section class="post-grid" id="postGrid">
-        <!-- Posts will be dynamically inserted here -->
+        {{if .}}
+        {{range .}}
+        <div class="post">
+            <a href="/post/{{.ID}}">
+                {{if .ImageURL}}
+                <img src="{{.ImageURL}}" alt="Изображение поста">
+                {{else}}
+                <img src="data:image/svg+xml;base64,PHN2ZyBmaWxsPSJub25lIiB2aWV3Qm94PSIwIDAgMTg5IDUzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogIDxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xMTAuMDQ1IDI0LjIyNGgtMi40MDVsLTQuMzc4IDQuNTAydi05LjAwM2gtMS44NXYxNS4zNTRoMS44NXYtNS4wNTZsNC45OTUgNC45OTQuMDYxLjA2MmgyLjIydi0uMTg1bC01LjYxMS01LjU1em0tMTEuODk4IDguMjIzYy0uNjc5LjY3OC0xLjY2NiAxLjA0OC0yLjc3NSAxLjA0OC0xLjkxMiAwLTMuODI0LTEuMTcyLTMuODI0LTMuODg1IDAtMi4yODEgMS42MDQtMy44ODUgMy44MjQtMy44ODUuOTg2IDAgMS45MTEuMzcgMi42NTEgMS4wNDlsLjA2Mi4wNjEgMS4xNzEtMS4yMzMtLjA2MS0uMDYyQzk4LjA4NSAyNC40OTIgOTYuNzkgMjQgOTUuMzEgMjRjLTMuMzkyIDAtNS42NzMgMi4yODEtNS42NzMgNS42MTEgMCAzLjg4NSAyLjgzNiA1LjYxMiA1LjY3MyA1LjYxMmguMDYyYzEuNDggMCAyLjg5OC0uNTU1IDMuODg0LTEuNjA0bC4wNjItLjA2MS0xLjIzMy0xLjIzNHoiIC8+CiAgPHBhdGggZmlsbD0iI2RlNTgzMyIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMjYuNSA1M0M0MS4xMzYgNTMgNTMgNDEuMTM2IDUzIDI2LjVTNDEuMTM2IDAgMjYuNSAwIDAgMTEuODY0IDAgMjYuNSAxMS44NjQgNTMgMjYuNSA1M3oiIGNsaXAtcnVsZT0iZXZlbm9kZCIvPgogIDxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0zMS41NzIgNDguMjM4Yy0xLjE5LjQ2Ni0zLjUyLjY3My00Ljg2NS42NzMtMS45NzMgMC00LjgxNC0uMzEtNS44NDktLjc3Ni0uNjM5LTEuOTY4LTIuNTUyLTguMDY2LTQuNDQyLTE1LjgxMS0uMDYxLS4yNTQtLjEyMy0uNTA2LS4xODUtLjc1N2wtLjAwMS0uMDA2Yy0yLjI0Ni05LjE3NC00LjA4LTE2LjY2NyA1Ljk3NC0xOS4wMjEuMDkxLS4wMjIuMTM2LS4xMzEuMDc2LS4yMDQtMS4xNTQtMS4zNjgtMy4zMTUtMS44MTctNi4wNDgtLjg3NC0uMTEyLjAzOS0uMjA5LS4wNzQtLjE0LS4xNy41MzYtLjczOSAxLjU4NC0xLjMwNyAyLjEtMS41NTYuMTA3LS4wNTEuMTAxLS4yMDgtLjAxMi0uMjQzIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz4KPC9zdmc+" alt="Изображение поста">
+                {{end}}
+                <h3 class="post-title">
+                    <span class="archive-indicator">Архив</span>
+                    {{.Title}}
+                </h3>
+                <div class="post-meta">
+                    <span>Автор: {{.UserName}}</span> · 
+                    <span>{{.CreatedAt.Format "02.01.2006"}}</span>
+                </div>
+            </a>
+        </div>
+        {{end}}
+        {{else}}
+        <div class="no-posts">
+            <p>В архиве пока нет постов.</p>
+        </div>
+        {{end}}
     </section>
 </main>
 </body>
