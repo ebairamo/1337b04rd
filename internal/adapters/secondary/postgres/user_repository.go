@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
+	"time"
 )
 
 // UserRepository реализует интерфейс репозитория пользователей для PostgreSQL
@@ -46,9 +47,19 @@ func (r *UserRepository) GetByID(ctx context.Context, id int64) (*models.User, e
 
 // Create создает нового пользователя
 func (r *UserRepository) Create(ctx context.Context, user *models.User) (int64, error) {
-	// TODO: реализовать создание пользователя в БД
-	slog.Info("Заглушка: создание пользователя", "username", user.Username)
-	return 1, nil
+	currentTime := time.Now()
+
+	query := `INSERT INTO users (user_name, avatar_url, created_at)
+	VALUES ($1, $2, $3)
+	RETURNING user_id`
+
+	err := r.db.QueryRowContext(ctx, query, user.Username, user.AvatarURL, currentTime).Scan(&user.ID)
+	if err != nil {
+		slog.Error("Ошибка при создании пользователя в БД", "error", err)
+		return 0, err
+	}
+	slog.Info("Пользователь создан", "user", user)
+	return user.ID, nil
 }
 
 // GetRandomAvatar получает случайный аватар для пользователя
