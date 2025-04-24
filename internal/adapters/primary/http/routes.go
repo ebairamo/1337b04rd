@@ -14,9 +14,10 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 	// Базовый обработчик для статических страниц
 	mux.HandleFunc("/", handlers.HandlePage)
 
-	// Регистрация маршрутов для пользователей и постов
+	// Регистрация маршрутов для пользователей, постов и комментариев
 	RegisterUserRoutes(mux, db)
 	RegisterPostRoutes(mux, db)
+	RegisterCommentRoutes(mux, db)
 }
 
 // RegisterUserRoutes регистрирует маршруты для пользователей
@@ -57,6 +58,11 @@ func RegisterPostRoutes(mux *http.ServeMux, db *sql.DB) {
 		// Маршрут для архивации поста
 		if strings.HasSuffix(path, "/archive") && r.Method == http.MethodPost {
 			postHandler.HandleArchivePost(w, r)
+			return
+		}
+
+		// Проверка на маршрут комментариев (будет обработан в RegisterCommentRoutes)
+		if strings.HasSuffix(path, "/comments") {
 			return
 		}
 
@@ -104,4 +110,44 @@ func RegisterPostRoutes(mux *http.ServeMux, db *sql.DB) {
 
 		postHandler.HandleGetPost(w, r)
 	})
+}
+
+// RegisterCommentRoutes регистрирует маршруты для комментариев
+func RegisterCommentRoutes(mux *http.ServeMux, db *sql.DB) {
+	// Инициализация репозиториев и сервисов
+	commentRepo := postgres.NewCommentRepository(db)
+	userRepo := postgres.NewUserRepository(db)
+	postRepo := postgres.NewPostRepository(db)
+
+	userService := services.NewUserService(userRepo)
+	commentService := services.NewCommentService(commentRepo, userRepo, postRepo)
+
+	commentHandler := handlers.NewCommentHandler(commentService, userService)
+
+	// Регистрация маршрутов для работы с отдельными комментариями
+	mux.HandleFunc("/api/comments/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			commentHandler.HandleGetComment(w, r)
+		case http.MethodDelete:
+			commentHandler.HandleDeleteComment(w, r)
+		default:
+			http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Регистрация маршрутов для комментариев к постам
+	mux.HandleFunc("/api/posts/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/comments") {
+			switch r.Method {
+			case http.MethodGet:
+				commentHandler.HandleGetPostComments(w, r)
+			default:
+				http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+			}
+		}
+	})
+
+	// Обработка отправки комментария
+	mux.HandleFunc("/submit-comment", commentHandler.HandleCreateComment)
 }

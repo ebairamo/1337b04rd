@@ -110,13 +110,6 @@ func (r *PostRepository) Create(ctx context.Context, post *models.Post) (int64, 
 	return newID, err
 }
 
-// Update обновляет существующий пост
-func (r *PostRepository) Update(ctx context.Context, post *models.Post) error {
-	// TODO: реализовать обновление поста в БД
-	slog.Info("Заглушка: обновление поста", "id", post.ID)
-	return nil
-}
-
 // Archive архивирует пост
 func (r *PostRepository) Archive(ctx context.Context, id int64) error {
 	// TODO: реализовать архивацию поста в БД

@@ -1,3 +1,192 @@
 package handlers
 
-//todo
+import (
+	"1337b04rd/internal/domain/services"
+	"encoding/json"
+	"log/slog"
+	"net/http"
+	"strconv"
+	"strings"
+)
+
+// CommentHandler обрабатывает HTTP запросы для комментариев
+type CommentHandler struct {
+	commentService *services.CommentService
+	userService    *services.UserService
+}
+
+// NewCommentHandler создает новый обработчик комментариев
+func NewCommentHandler(commentService *services.CommentService, userService *services.UserService) *CommentHandler {
+	return &CommentHandler{
+		commentService: commentService,
+		userService:    userService,
+	}
+}
+
+// HandleGetComment обрабатывает GET запрос для получения комментария
+func (h *CommentHandler) HandleGetComment(w http.ResponseWriter, r *http.Request) {
+	// Парсим ID комментария из пути
+	path := strings.TrimPrefix(r.URL.Path, "/api/comments/")
+	id, err := strconv.ParseInt(path, 10, 64)
+	if err != nil {
+		slog.Error("Невозможно преобразовать ID в число", "path", path, "error", err)
+		http.Error(w, "Неверный ID комментария", http.StatusBadRequest)
+		return
+	}
+
+	comment, err := h.commentService.GetCommentByID(r.Context(), id)
+	if err != nil {
+		slog.Error("Ошибка получения комментария", "id", id, "error", err)
+		http.Error(w, "Комментарий не найден", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(comment)
+}
+
+// HandleGetPostComments обрабатывает GET запрос для получения комментариев к посту
+func (h *CommentHandler) HandleGetPostComments(w http.ResponseWriter, r *http.Request) {
+	// Парсим ID поста из пути
+	path := strings.TrimPrefix(r.URL.Path, "/api/posts/")
+	path = strings.TrimSuffix(path, "/comments")
+	postID, err := strconv.ParseInt(path, 10, 64)
+	if err != nil {
+		slog.Error("Невозможно преобразовать ID в число", "path", path, "error", err)
+		http.Error(w, "Неверный ID поста", http.StatusBadRequest)
+		return
+	}
+
+	// Параметры пагинации
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50 // По умолчанию
+	if limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	offset := 0 // По умолчанию
+	if offsetStr != "" {
+		parsedOffset, err := strconv.Atoi(offsetStr)
+		if err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	comments, err := h.commentService.GetCommentsByPostID(r.Context(), postID, limit, offset)
+	if err != nil {
+		slog.Error("Ошибка получения комментариев", "post_id", postID, "error", err)
+		http.Error(w, "Не удалось получить комментарии", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(comments)
+}
+
+// HandleCreateComment обрабатывает POST запрос для создания комментария
+func (h *CommentHandler) HandleCreateComment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Парсим данные формы
+	err := r.ParseMultipartForm(10 << 20) // 10 MB
+	if err != nil {
+		slog.Error("Ошибка парсинга формы", "error", err)
+		http.Error(w, "Неверный формат данных", http.StatusBadRequest)
+		return
+	}
+
+	// Получаем ID поста
+	postIDStr := r.FormValue("post_id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		slog.Error("Невозможно преобразовать ID поста в число", "post_id", postIDStr, "error", err)
+		http.Error(w, "Неверный ID поста", http.StatusBadRequest)
+		return
+	}
+
+	// Получаем текст комментария
+	content := r.FormValue("comment")
+	if content == "" {
+		http.Error(w, "Комментарий не может быть пустым", http.StatusBadRequest)
+		return
+	}
+
+	// Получаем ID родительского комментария (если это ответ)
+	replyToIDStr := r.FormValue("reply_to_id")
+	var replyToID int64 = 0
+	if replyToIDStr != "" {
+		replyToID, err = strconv.ParseInt(replyToIDStr, 10, 64)
+		if err != nil {
+			slog.Error("Невозможно преобразовать ID родительского комментария в число", "reply_to_id", replyToIDStr, "error", err)
+			http.Error(w, "Неверный ID родительского комментария", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Получаем файл изображения
+	file, handler, err := r.FormFile("file")
+	var imageURL string
+	if err == nil && file != nil {
+		defer file.Close()
+
+		// В реальной реализации здесь было бы сохранение изображения
+		// и получение URL. Для заглушки просто логируем информацию.
+		slog.Info("Загружен файл", "filename", handler.Filename, "size", handler.Size)
+		imageURL = "https://example.com/images/placeholder.jpg"
+	}
+
+	// Создаем анонимного пользователя
+	user, err := h.userService.CreateAnonymousUser(r.Context())
+	if err != nil {
+		slog.Error("Ошибка создания пользователя", "error", err)
+		http.Error(w, "Не удалось создать пользователя", http.StatusInternalServerError)
+		return
+	}
+
+	// Создаем комментарий
+	comment, err := h.commentService.CreateComment(r.Context(), postID, user.ID, content, imageURL, replyToID)
+	if err != nil {
+		slog.Error("Ошибка создания комментария", "error", err)
+		http.Error(w, "Не удалось создать комментарий", http.StatusInternalServerError)
+		return
+	}
+
+	// Возвращаем созданный комментарий
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(comment)
+}
+
+// HandleDeleteComment обрабатывает DELETE запрос для удаления комментария
+func (h *CommentHandler) HandleDeleteComment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Парсим ID комментария из пути
+	path := strings.TrimPrefix(r.URL.Path, "/api/comments/")
+	id, err := strconv.ParseInt(path, 10, 64)
+	if err != nil {
+		slog.Error("Невозможно преобразовать ID в число", "path", path, "error", err)
+		http.Error(w, "Неверный ID комментария", http.StatusBadRequest)
+		return
+	}
+
+	err = h.commentService.DeleteComment(r.Context(), id)
+	if err != nil {
+		slog.Error("Ошибка удаления комментария", "id", id, "error", err)
+		http.Error(w, "Не удалось удалить комментарий", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
