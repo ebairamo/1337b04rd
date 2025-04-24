@@ -22,12 +22,26 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // GetByID возвращает пользователя по его ID
 func (r *UserRepository) GetByID(ctx context.Context, id int64) (*models.User, error) {
 	// TODO: реализовать получение пользователя из БД
-	slog.Info("Заглушка: получение пользователя по ID", "id", id)
-	return &models.User{
-		ID:        id,
-		Username:  "anonymous",
-		AvatarURL: "https://rickandmortyapi.com/api/character/avatar/1.jpeg",
-	}, nil
+
+	query := `SELECT 
+	user_id, 
+	user_name, 
+	avatar_url,
+	created_at
+	FROM posts 
+	WHERE user_id = $1`
+
+	var user models.User
+
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&user.ID, &user.Username, &user.AvatarURL, &user.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			slog.Error("Пользователь не найден", "id", id)
+		}
+		slog.Error("Ошибка при получении пользователя из БД", "error", err)
+	}
+	slog.Info("Пользователь найден", "user", user)
+	return &user, nil
 }
 
 // Create создает нового пользователя
