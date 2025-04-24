@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"1337b04rd/internal/domain/models"
 )
@@ -86,9 +87,27 @@ func (r *PostRepository) GetAll(ctx context.Context, limit, offset int, archived
 
 // Create создает новый пост
 func (r *PostRepository) Create(ctx context.Context, post *models.Post) (int64, error) {
-	// TODO: реализовать создание поста в БД
-	slog.Info("Заглушка: создание поста", "title", post.Title)
-	return 1, nil
+	currentTime := time.Now()
+
+	query := `INSERT INTO posts (title, content, image_url, user_id, user_name, avatar_url, created_at, is_archived)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
+	`
+	var newID int64
+	err := r.db.QueryRowContext(ctx, query, post.Title, post.Content, post.ImageURL, post.UserID, post.UserName, post.AvatarURL, currentTime, post.IsArchived).Scan(&newID)
+	if err != nil {
+		slog.Error("Ошибка создания поста", "error", err)
+		return 0, err
+	}
+	slog.Info("Пост создан",
+		"id", newID,
+		"title", post.Title,
+		"content_length", len(post.Content),
+		"image_url", post.ImageURL,
+		"user_id", post.UserID,
+		"user_name", post.UserName,
+		"created_at", currentTime,
+		"is_archived", post.IsArchived)
+	return newID, err
 }
 
 // Update обновляет существующий пост
