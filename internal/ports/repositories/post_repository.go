@@ -15,10 +15,6 @@ type PostRepository interface {
 
 	// Create создает новый пост
 	Create(ctx context.Context, post *models.Post) (int64, error)
-
-	// Update обновляет существующий пост
-	Update(ctx context.Context, post *models.Post) error
-
 	// Archive архивирует пост
 	Archive(ctx context.Context, id int64) error
 }

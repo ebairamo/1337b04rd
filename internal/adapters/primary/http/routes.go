@@ -45,11 +45,14 @@ func RegisterPostRoutes(mux *http.ServeMux, db *sql.DB) {
 	// Инициализация репозиториев и сервисов
 	postRepo := postgres.NewPostRepository(db)
 	userRepo := postgres.NewUserRepository(db)
+	commentRepo := postgres.NewCommentRepository(db)
 
 	userService := services.NewUserService(userRepo)
 	postService := services.NewPostService(postRepo, userRepo)
+	commentService := services.NewCommentService(commentRepo, userRepo, postRepo)
 
 	postHandler := handlers.NewPostHandler(postService, userService)
+	commentHandler := handlers.NewCommentHandler(commentService, userService)
 
 	// Обработка API маршрутов
 	mux.HandleFunc("/api/posts/", func(w http.ResponseWriter, r *http.Request) {
@@ -61,8 +64,14 @@ func RegisterPostRoutes(mux *http.ServeMux, db *sql.DB) {
 			return
 		}
 
-		// Проверка на маршрут комментариев (будет обработан в RegisterCommentRoutes)
+		// Проверка на маршрут комментариев
 		if strings.HasSuffix(path, "/comments") {
+			switch r.Method {
+			case http.MethodGet:
+				commentHandler.HandleGetPostComments(w, r)
+			default:
+				http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+			}
 			return
 		}
 
@@ -112,7 +121,6 @@ func RegisterPostRoutes(mux *http.ServeMux, db *sql.DB) {
 	})
 }
 
-// RegisterCommentRoutes регистрирует маршруты для комментариев
 func RegisterCommentRoutes(mux *http.ServeMux, db *sql.DB) {
 	// Инициализация репозиториев и сервисов
 	commentRepo := postgres.NewCommentRepository(db)
@@ -136,17 +144,8 @@ func RegisterCommentRoutes(mux *http.ServeMux, db *sql.DB) {
 		}
 	})
 
-	// Регистрация маршрутов для комментариев к постам
-	mux.HandleFunc("/api/posts/", func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/comments") {
-			switch r.Method {
-			case http.MethodGet:
-				commentHandler.HandleGetPostComments(w, r)
-			default:
-				http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
-			}
-		}
-	})
+	// !!!! ВАЖНО: Не регистрируем здесь тот же маршрут "/api/posts/", что уже зарегистрирован в RegisterPostRoutes
+	// Вместо этого, обработку комментариев к постам нужно добавить в RegisterPostRoutes
 
 	// Обработка отправки комментария
 	mux.HandleFunc("/submit-comment", commentHandler.HandleCreateComment)
