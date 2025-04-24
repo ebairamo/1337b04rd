@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"1337b04rd/internal/domain/models"
 	"1337b04rd/internal/domain/services"
 	"encoding/json"
 	"html/template"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // PostHandler обрабатывает HTTP запросы для постов
@@ -58,8 +60,39 @@ func (h *PostHandler) HandleGetPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// TODO: Загрузить комментарии
-		tmpl.Execute(w, post)
+		// Создаем тестовые комментарии для передачи в шаблон
+		testComments := []*models.Comment{
+			{
+				ID:        1,
+				PostID:    post.ID,
+				UserID:    101,
+				UserName:  "Anonymous1",
+				AvatarURL: "https://rickandmortyapi.com/api/character/avatar/1.jpeg",
+				Content:   "Тестовый комментарий 1",
+				CreatedAt: time.Now().Add(-24 * time.Hour),
+			},
+			{
+				ID:        2,
+				PostID:    post.ID,
+				UserID:    102,
+				UserName:  "Anonymous2",
+				AvatarURL: "https://rickandmortyapi.com/api/character/avatar/2.jpeg",
+				Content:   "Тестовый комментарий 2",
+				CreatedAt: time.Now(),
+			},
+		}
+
+		// Создаем данные для шаблона
+		templateData := struct {
+			*models.Post
+			Comments []*models.Comment
+		}{
+			Post:     post,
+			Comments: testComments,
+		}
+
+		// Передаем данные в шаблон
+		tmpl.Execute(w, templateData)
 	}
 }
 
