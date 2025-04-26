@@ -1,11 +1,12 @@
 package services
 
 import (
-	"1337b04rd/internal/domain/models"
-	"1337b04rd/internal/ports/repositories"
 	"context"
 	"log/slog"
 	"time"
+
+	"1337b04rd/internal/domain/models"
+	"1337b04rd/internal/ports/repositories"
 )
 
 // PostService предоставляет бизнес-логику для работы с постами

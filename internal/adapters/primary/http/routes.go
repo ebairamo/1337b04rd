@@ -1,152 +1,162 @@
 package http
 
 import (
-	"1337b04rd/internal/adapters/primary/http/handlers"
-	"1337b04rd/internal/adapters/secondary/postgres"
-	"1337b04rd/internal/domain/services"
 	"database/sql"
 	"net/http"
 	"strings"
+
+	"1337b04rd/internal/adapters/primary/http/handlers"
+	"1337b04rd/internal/adapters/primary/http/middleware"
+	"1337b04rd/internal/adapters/secondary/postgres"
+	"1337b04rd/internal/adapters/secondary/rickandmorty"
+	"1337b04rd/internal/domain/services"
 )
 
 // RegisterRoutes регистрирует все маршруты приложения
 func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
-	// Базовый обработчик для статических страниц
-	mux.HandleFunc("/", handlers.HandlePage)
-
-	// Регистрация маршрутов для пользователей, постов и комментариев
-	RegisterUserRoutes(mux, db)
-	RegisterPostRoutes(mux, db)
-	RegisterCommentRoutes(mux, db)
-}
-
-// RegisterUserRoutes регистрирует маршруты для пользователей
-func RegisterUserRoutes(mux *http.ServeMux, db *sql.DB) {
-	// Инициализация репозитория и сервиса
-	userRepo := postgres.NewUserRepository(db)
-	userService := services.NewUserService(userRepo)
-	userHandler := handlers.NewUserHandler(userService)
-
-	// Регистрация маршрутов
-	mux.HandleFunc("/api/users/", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			userHandler.HandleGetUser(w, r)
-		case http.MethodPost:
-			userHandler.HandleCreateUser(w, r)
-		default:
-			http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
-		}
-	})
-}
-
-// RegisterPostRoutes регистрирует маршруты для постов
-func RegisterPostRoutes(mux *http.ServeMux, db *sql.DB) {
-	// Инициализация репозиториев и сервисов
+	// Инициализация сервисов и репозиториев
+	avatarService := rickandmorty.NewAvatarService()
+	userRepo := postgres.NewUserRepository(db, avatarService)
 	postRepo := postgres.NewPostRepository(db)
-	userRepo := postgres.NewUserRepository(db)
 	commentRepo := postgres.NewCommentRepository(db)
 
 	userService := services.NewUserService(userRepo)
 	postService := services.NewPostService(postRepo, userRepo)
 	commentService := services.NewCommentService(commentRepo, userRepo, postRepo)
 
+	// Создание middleware
+	authMiddleware := middleware.NewAuthMiddleware(userService)
+
+	// Создание обработчиков
+	userHandler := handlers.NewUserHandler(userService)
 	postHandler := handlers.NewPostHandler(postService, userService)
 	commentHandler := handlers.NewCommentHandler(commentService, userService)
 
-	// Обработка API маршрутов
-	mux.HandleFunc("/api/posts/", func(w http.ResponseWriter, r *http.Request) {
+	// Функция-помощник для оборачивания обработчиков с аутентификацией
+	withAuth := authMiddleware.Handler
+
+	// Регистрация маршрутов для API с аутентификацией
+	mux.Handle("/api/", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
-		// Маршрут для архивации поста
-		if strings.HasSuffix(path, "/archive") && r.Method == http.MethodPost {
-			postHandler.HandleArchivePost(w, r)
+		// Маршруты для пользователей
+		if strings.HasPrefix(path, "/api/users/") {
+			handleUserRoutes(w, r, userHandler)
 			return
 		}
 
-		// Проверка на маршрут комментариев
-		if strings.HasSuffix(path, "/comments") {
-			switch r.Method {
-			case http.MethodGet:
-				commentHandler.HandleGetPostComments(w, r)
-			default:
-				http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
-			}
+		// Маршруты для постов
+		if strings.HasPrefix(path, "/api/posts/") {
+			handlePostRoutes(w, r, postHandler, commentHandler)
 			return
 		}
 
-		// Маршрут для получения всех постов
-		if path == "/api/posts/" {
-			switch r.Method {
-			case http.MethodGet:
-				postHandler.HandleGetAllPosts(w, r)
-			default:
-				http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
-			}
+		// Маршруты для комментариев
+		if strings.HasPrefix(path, "/api/comments/") {
+			handleCommentRoutes(w, r, commentHandler)
 			return
 		}
 
-		// Маршрут для получения поста по ID
-		switch r.Method {
-		case http.MethodGet:
-			postHandler.HandleGetPost(w, r)
-		default:
-			http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
-		}
-	})
+		http.NotFound(w, r)
+	})))
 
-	// Обработка маршрута создания поста
-	mux.HandleFunc("/submit-post", postHandler.HandleCreatePost)
+	// Маршруты для работы с постами
+	mux.Handle("/post/", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimPrefix(r.URL.Path, "/post/")
+		r.URL.Path = "/api/posts/" + id
+		postHandler.HandleGetPost(w, r)
+	})))
 
-	// Обработка маршрутов шаблонов
-	mux.HandleFunc("/catalog.html", func(w http.ResponseWriter, r *http.Request) {
+	// Маршруты для отправки форм
+	mux.Handle("/submit-post", withAuth(http.HandlerFunc(postHandler.HandleCreatePost)))
+	mux.Handle("/submit-comment", withAuth(http.HandlerFunc(commentHandler.HandleCreateComment)))
+
+	// Маршруты для страниц каталога и архива
+	mux.Handle("/catalog.html", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		postHandler.HandleGetAllPosts(w, r)
-	})
+	})))
 
-	mux.HandleFunc("/archive.html", func(w http.ResponseWriter, r *http.Request) {
-		// Установка параметра archived=true для запроса архивных постов
+	mux.Handle("/archive.html", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		q.Set("archived", "true")
 		r.URL.RawQuery = q.Encode()
-
 		postHandler.HandleGetAllPosts(w, r)
-	})
+	})))
 
-	// Обработка маршрута для отдельного поста
-	mux.HandleFunc("/post/", func(w http.ResponseWriter, r *http.Request) {
-		id := strings.TrimPrefix(r.URL.Path, "/post/")
-		r.URL.Path = "/api/posts/" + id
+	// Статические страницы без аутентификации
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			// Перенаправляем на каталог при запросе корневой страницы
+			http.Redirect(w, r, "/catalog.html", http.StatusFound)
+			return
+		}
 
-		postHandler.HandleGetPost(w, r)
+		// Для всех остальных запросов используем обработчик страниц
+		handlers.HandlePage(w, r)
 	})
 }
 
-func RegisterCommentRoutes(mux *http.ServeMux, db *sql.DB) {
-	// Инициализация репозиториев и сервисов
-	commentRepo := postgres.NewCommentRepository(db)
-	userRepo := postgres.NewUserRepository(db)
-	postRepo := postgres.NewPostRepository(db)
+// handleUserRoutes обрабатывает маршруты пользователей
+func handleUserRoutes(w http.ResponseWriter, r *http.Request, handler *handlers.UserHandler) {
+	switch r.Method {
+	case http.MethodGet:
+		handler.HandleGetUser(w, r)
+	case http.MethodPost:
+		handler.HandleCreateUser(w, r)
+	default:
+		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+	}
+}
 
-	userService := services.NewUserService(userRepo)
-	commentService := services.NewCommentService(commentRepo, userRepo, postRepo)
+// handlePostRoutes обрабатывает маршруты постов
+func handlePostRoutes(w http.ResponseWriter, r *http.Request, postHandler *handlers.PostHandler, commentHandler *handlers.CommentHandler) {
+	path := r.URL.Path
 
-	commentHandler := handlers.NewCommentHandler(commentService, userService)
+	// Маршрут для архивации поста
+	if strings.HasSuffix(path, "/archive") && r.Method == http.MethodPost {
+		postHandler.HandleArchivePost(w, r)
+		return
+	}
 
-	// Регистрация маршрутов для работы с отдельными комментариями
-	mux.HandleFunc("/api/comments/", func(w http.ResponseWriter, r *http.Request) {
+	// Проверка на маршрут комментариев
+	if strings.HasSuffix(path, "/comments") {
 		switch r.Method {
 		case http.MethodGet:
-			commentHandler.HandleGetComment(w, r)
-		case http.MethodDelete:
-			commentHandler.HandleDeleteComment(w, r)
+			commentHandler.HandleGetPostComments(w, r)
 		default:
 			http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
 		}
-	})
+		return
+	}
 
-	// !!!! ВАЖНО: Не регистрируем здесь тот же маршрут "/api/posts/", что уже зарегистрирован в RegisterPostRoutes
-	// Вместо этого, обработку комментариев к постам нужно добавить в RegisterPostRoutes
+	// Маршрут для получения всех постов
+	if path == "/api/posts/" {
+		switch r.Method {
+		case http.MethodGet:
+			postHandler.HandleGetAllPosts(w, r)
+		default:
+			http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		}
+		return
+	}
 
-	// Обработка отправки комментария
-	mux.HandleFunc("/submit-comment", commentHandler.HandleCreateComment)
+	// Маршрут для получения поста по ID
+	switch r.Method {
+	case http.MethodGet:
+		postHandler.HandleGetPost(w, r)
+	default:
+		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleCommentRoutes обрабатывает маршруты комментариев
+func handleCommentRoutes(w http.ResponseWriter, r *http.Request, handler *handlers.CommentHandler) {
+	switch r.Method {
+	case http.MethodGet:
+		handler.HandleGetComment(w, r)
+	case http.MethodDelete:
+		handler.HandleDeleteComment(w, r)
+	default:
+		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+	}
 }

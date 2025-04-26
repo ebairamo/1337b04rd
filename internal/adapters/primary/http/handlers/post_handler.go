@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"1337b04rd/internal/domain/models"
-	"1337b04rd/internal/domain/services"
 	"encoding/json"
 	"html/template"
 	"log/slog"
@@ -10,6 +8,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"1337b04rd/internal/adapters/primary/http/middleware"
+	"1337b04rd/internal/domain/models"
+	"1337b04rd/internal/domain/services"
 )
 
 // PostHandler обрабатывает HTTP запросы для постов
@@ -28,8 +30,15 @@ func NewPostHandler(postService *services.PostService, userService *services.Use
 
 // HandleGetPost обрабатывает GET запрос для получения поста
 func (h *PostHandler) HandleGetPost(w http.ResponseWriter, r *http.Request) {
+	// Получаем пользователя из контекста
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		slog.Error("Пользователь не найден в контексте")
+		http.Error(w, "Ошибка авторизации", http.StatusUnauthorized)
+		return
+	}
+
 	// Простой парсинг пути для извлечения ID поста
-	// Пример: /api/posts/123
 	path := strings.TrimPrefix(r.URL.Path, "/api/posts/")
 	id, err := strconv.ParseInt(path, 10, 64)
 	if err != nil {
@@ -86,9 +95,11 @@ func (h *PostHandler) HandleGetPost(w http.ResponseWriter, r *http.Request) {
 		templateData := struct {
 			*models.Post
 			Comments []*models.Comment
+			User     *models.User
 		}{
 			Post:     post,
 			Comments: testComments,
+			User:     user,
 		}
 
 		// Передаем данные в шаблон
@@ -98,6 +109,14 @@ func (h *PostHandler) HandleGetPost(w http.ResponseWriter, r *http.Request) {
 
 // HandleGetAllPosts обрабатывает GET запрос для получения списка постов
 func (h *PostHandler) HandleGetAllPosts(w http.ResponseWriter, r *http.Request) {
+	// Получаем пользователя из контекста
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		slog.Error("Пользователь не найден в контексте")
+		http.Error(w, "Ошибка авторизации", http.StatusUnauthorized)
+		return
+	}
+
 	// Параметры запроса
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
@@ -151,6 +170,8 @@ func (h *PostHandler) HandleGetAllPosts(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
+		// Просто передаем список постов без обертки структурой,
+		// так как шаблоны ожидают прямой список постов
 		tmpl.Execute(w, posts)
 	}
 }
@@ -162,6 +183,14 @@ func (h *PostHandler) HandleCreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем пользователя из контекста
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		slog.Error("Пользователь не найден в контексте")
+		http.Error(w, "Ошибка авторизации", http.StatusUnauthorized)
+		return
+	}
+
 	// Получаем данные формы
 	err := r.ParseMultipartForm(10 << 20) // 10 MB
 	if err != nil {
@@ -170,9 +199,11 @@ func (h *PostHandler) HandleCreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Получаем имя пользователя из формы или используем имя из сессии
 	name := r.FormValue("name")
-	if name == "" {
-		name = "Anonymous"
+	if name != "" && name != user.Username {
+		// В реальной реализации здесь нужно обновить имя пользователя в БД
+		user.Username = name
 	}
 
 	subject := r.FormValue("subject")
@@ -190,15 +221,7 @@ func (h *PostHandler) HandleCreatePost(w http.ResponseWriter, r *http.Request) {
 		imageURL = "https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png"
 	}
 
-	// Создаем анонимного пользователя
-	user, err := h.userService.CreateAnonymousUser(r.Context())
-	if err != nil {
-		slog.Error("Ошибка создания пользователя", "error", err)
-		http.Error(w, "Не удалось создать пользователя", http.StatusInternalServerError)
-		return
-	}
-
-	// Создаем пост
+	// Создаем пост, используя ID пользователя из сессии
 	post, err := h.postService.CreatePost(r.Context(), subject, comment, imageURL, user.ID)
 	if err != nil {
 		slog.Error("Ошибка создания поста", "error", err)
@@ -214,6 +237,14 @@ func (h *PostHandler) HandleCreatePost(w http.ResponseWriter, r *http.Request) {
 func (h *PostHandler) HandleArchivePost(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Получаем пользователя из контекста
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		slog.Error("Пользователь не найден в контексте")
+		http.Error(w, "Ошибка авторизации", http.StatusUnauthorized)
 		return
 	}
 

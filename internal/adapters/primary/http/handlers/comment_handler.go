@@ -1,12 +1,14 @@
 package handlers
 
 import (
-	"1337b04rd/internal/domain/services"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"1337b04rd/internal/adapters/primary/http/middleware"
+	"1337b04rd/internal/domain/services"
 )
 
 // CommentHandler обрабатывает HTTP запросы для комментариев
@@ -25,6 +27,14 @@ func NewCommentHandler(commentService *services.CommentService, userService *ser
 
 // HandleGetComment обрабатывает GET запрос для получения комментария
 func (h *CommentHandler) HandleGetComment(w http.ResponseWriter, r *http.Request) {
+	// Получаем пользователя из контекста
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		slog.Error("Пользователь не найден в контексте")
+		http.Error(w, "Ошибка авторизации", http.StatusUnauthorized)
+		return
+	}
+
 	// Парсим ID комментария из пути
 	path := strings.TrimPrefix(r.URL.Path, "/api/comments/")
 	id, err := strconv.ParseInt(path, 10, 64)
@@ -47,6 +57,14 @@ func (h *CommentHandler) HandleGetComment(w http.ResponseWriter, r *http.Request
 
 // HandleGetPostComments обрабатывает GET запрос для получения комментариев к посту
 func (h *CommentHandler) HandleGetPostComments(w http.ResponseWriter, r *http.Request) {
+	// Получаем пользователя из контекста
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		slog.Error("Пользователь не найден в контексте")
+		http.Error(w, "Ошибка авторизации", http.StatusUnauthorized)
+		return
+	}
+
 	// Парсим ID поста из пути
 	path := strings.TrimPrefix(r.URL.Path, "/api/posts/")
 	path = strings.TrimSuffix(path, "/comments")
@@ -92,6 +110,14 @@ func (h *CommentHandler) HandleGetPostComments(w http.ResponseWriter, r *http.Re
 func (h *CommentHandler) HandleCreateComment(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Получаем пользователя из контекста
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		slog.Error("Пользователь не найден в контексте")
+		http.Error(w, "Ошибка авторизации", http.StatusUnauthorized)
 		return
 	}
 
@@ -143,32 +169,30 @@ func (h *CommentHandler) HandleCreateComment(w http.ResponseWriter, r *http.Requ
 		imageURL = "https://example.com/images/placeholder.jpg"
 	}
 
-	// Создаем анонимного пользователя
-	user, err := h.userService.CreateAnonymousUser(r.Context())
-	if err != nil {
-		slog.Error("Ошибка создания пользователя", "error", err)
-		http.Error(w, "Не удалось создать пользователя", http.StatusInternalServerError)
-		return
-	}
-
-	// Создаем комментарий
-	comment, err := h.commentService.CreateComment(r.Context(), postID, user.ID, content, imageURL, replyToID)
+	// Создаем комментарий, используя данные пользователя из сессии
+	_, err = h.commentService.CreateComment(r.Context(), postID, user.ID, content, imageURL, replyToID)
 	if err != nil {
 		slog.Error("Ошибка создания комментария", "error", err)
 		http.Error(w, "Не удалось создать комментарий", http.StatusInternalServerError)
 		return
 	}
 
-	// Возвращаем созданный комментарий
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(comment)
+	// Перенаправляем на страницу поста
+	http.Redirect(w, r, "/post/"+strconv.FormatInt(postID, 10), http.StatusSeeOther)
 }
 
 // HandleDeleteComment обрабатывает DELETE запрос для удаления комментария
 func (h *CommentHandler) HandleDeleteComment(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Получаем пользователя из контекста
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		slog.Error("Пользователь не найден в контексте")
+		http.Error(w, "Ошибка авторизации", http.StatusUnauthorized)
 		return
 	}
 
