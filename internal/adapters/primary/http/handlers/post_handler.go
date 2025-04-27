@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"1337b04rd/internal/adapters/primary/http/middleware"
 	"1337b04rd/internal/domain/models"
@@ -16,15 +15,17 @@ import (
 
 // PostHandler обрабатывает HTTP запросы для постов
 type PostHandler struct {
-	postService *services.PostService
-	userService *services.UserService
+	postService    *services.PostService
+	userService    *services.UserService
+	commentService *services.CommentService
 }
 
 // NewPostHandler создает новый обработчик постов
-func NewPostHandler(postService *services.PostService, userService *services.UserService) *PostHandler {
+func NewPostHandler(postService *services.PostService, userService *services.UserService, commentService *services.CommentService) *PostHandler {
 	return &PostHandler{
-		postService: postService,
-		userService: userService,
+		postService:    postService,
+		userService:    userService,
+		commentService: commentService,
 	}
 }
 
@@ -69,26 +70,12 @@ func (h *PostHandler) HandleGetPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Создаем тестовые комментарии для передачи в шаблон
-		testComments := []*models.Comment{
-			{
-				ID:        1,
-				PostID:    post.ID,
-				UserID:    101,
-				UserName:  "Anonymous1",
-				AvatarURL: "https://rickandmortyapi.com/api/character/avatar/1.jpeg",
-				Content:   "Тестовый комментарий 1",
-				CreatedAt: time.Now().Add(-24 * time.Hour),
-			},
-			{
-				ID:        2,
-				PostID:    post.ID,
-				UserID:    102,
-				UserName:  "Anonymous2",
-				AvatarURL: "https://rickandmortyapi.com/api/character/avatar/2.jpeg",
-				Content:   "Тестовый комментарий 2",
-				CreatedAt: time.Now(),
-			},
+		// Вместо создания тестовых комментариев
+		comments, err := h.commentService.GetCommentsByPostID(r.Context(), post.ID, 50, 0)
+		if err != nil {
+			slog.Error("Ошибка при получении комментариев", "post_id", post.ID, "error", err)
+			http.Error(w, "Ошибка при получении комментариев", http.StatusInternalServerError)
+			return
 		}
 
 		// Создаем данные для шаблона
@@ -98,7 +85,7 @@ func (h *PostHandler) HandleGetPost(w http.ResponseWriter, r *http.Request) {
 			User     *models.User
 		}{
 			Post:     post,
-			Comments: testComments,
+			Comments: comments,
 			User:     user,
 		}
 

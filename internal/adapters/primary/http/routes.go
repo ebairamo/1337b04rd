@@ -29,7 +29,7 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	// Создание обработчиков
 	userHandler := handlers.NewUserHandler(userService)
-	postHandler := handlers.NewPostHandler(postService, userService)
+	postHandler := handlers.NewPostHandler(postService, userService, commentService)
 	commentHandler := handlers.NewCommentHandler(commentService, userService)
 
 	// Функция-помощник для оборачивания обработчиков с аутентификацией
