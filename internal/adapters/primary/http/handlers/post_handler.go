@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"log/slog"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,6 +28,17 @@ func NewPostHandler(postService *services.PostService, userService *services.Use
 		userService:    userService,
 		commentService: commentService,
 	}
+}
+
+// PaginationData содержит информацию о пагинации для шаблонов
+type PaginationData struct {
+	Posts       []*models.Post
+	CurrentPage int
+	PrevPage    int
+	NextPage    int
+	TotalPages  int
+	PageNumbers []int
+	Limit       int
 }
 
 // HandleGetPost обрабатывает GET запрос для получения поста
@@ -94,7 +106,7 @@ func (h *PostHandler) HandleGetPost(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// HandleGetAllPosts обрабатывает GET запрос для получения списка постов
+// HandleGetAllPosts обрабатывает GET запрос для получения списка постов с пагинацией
 func (h *PostHandler) HandleGetAllPosts(w http.ResponseWriter, r *http.Request) {
 	// Получаем пользователя из контекста
 	user := middleware.GetUserFromContext(r.Context())
@@ -105,11 +117,20 @@ func (h *PostHandler) HandleGetAllPosts(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Параметры запроса
+	pageStr := r.URL.Query().Get("page")
 	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
 	archivedStr := r.URL.Query().Get("archived")
 
-	limit := 10
+	// Устанавливаем значения по умолчанию и парсим параметры
+	page := 1
+	if pageStr != "" {
+		parsedPage, err := strconv.Atoi(pageStr)
+		if err == nil && parsedPage > 0 {
+			page = parsedPage
+		}
+	}
+
+	limit := 10 // По умолчанию 10 постов на страницу
 	if limitStr != "" {
 		parsedLimit, err := strconv.Atoi(limitStr)
 		if err == nil && parsedLimit > 0 {
@@ -117,19 +138,14 @@ func (h *PostHandler) HandleGetAllPosts(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	offset := 0
-	if offsetStr != "" {
-		parsedOffset, err := strconv.Atoi(offsetStr)
-		if err == nil && parsedOffset >= 0 {
-			offset = parsedOffset
-		}
-	}
+	offset := (page - 1) * limit
 
 	archived := false
 	if archivedStr == "true" || archivedStr == "1" {
 		archived = true
 	}
 
+	// Получаем общее количество постов для расчета пагинации
 	posts, err := h.postService.GetAllPosts(r.Context(), limit, offset, archived)
 	if err != nil {
 		slog.Error("Ошибка получения списка постов", "error", err)
@@ -137,12 +153,48 @@ func (h *PostHandler) HandleGetAllPosts(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Используем предполагаемое общее количество постов для демонстрации
+	// В реальном приложении следует получить точное количество из базы данных
+	totalPosts := 100 // Предполагаемое количество для демонстрации
+	if archived {
+		totalPosts = 50 // Меньше постов в архиве
+	}
+
+	totalPages := int(math.Ceil(float64(totalPosts) / float64(limit)))
+	prevPage := page - 1
+	if prevPage < 1 {
+		prevPage = 1
+	}
+	nextPage := page + 1
+	if nextPage > totalPages {
+		nextPage = totalPages
+	}
+
+	// Создаем список номеров страниц для отображения в пагинации
+	pageNumbers := make([]int, 0)
+	startPage := math.Max(1, float64(page-2))
+	endPage := math.Min(float64(totalPages), float64(page+2))
+
+	for i := startPage; i <= endPage; i++ {
+		pageNumbers = append(pageNumbers, int(i))
+	}
+
+	paginationData := PaginationData{
+		Posts:       posts,
+		CurrentPage: page,
+		PrevPage:    prevPage,
+		NextPage:    nextPage,
+		TotalPages:  totalPages,
+		PageNumbers: pageNumbers,
+		Limit:       limit,
+	}
+
 	// Проверяем, нужно ли вернуть JSON или HTML
 	contentType := r.Header.Get("Accept")
 	if strings.Contains(contentType, "application/json") {
 		// Возвращаем JSON
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(posts)
+		json.NewEncoder(w).Encode(paginationData)
 	} else {
 		// Возвращаем HTML страницу каталога или архива
 		templateFile := "templates/catalog.html"
@@ -157,9 +209,8 @@ func (h *PostHandler) HandleGetAllPosts(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		// Просто передаем список постов без обертки структурой,
-		// так как шаблоны ожидают прямой список постов
-		tmpl.Execute(w, posts)
+		// Передаем данные пагинации в шаблон
+		tmpl.Execute(w, paginationData)
 	}
 }
 

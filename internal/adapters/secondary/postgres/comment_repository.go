@@ -139,11 +139,19 @@ func (r *CommentRepository) GetByPostID(ctx context.Context, postID int64, limit
 
 // Create создает новый комментарий
 func (r *CommentRepository) Create(ctx context.Context, comment *models.Comment) (int64, error) {
-	slog.Info("Заглушка: создание комментария",
-		"post_id", comment.PostID,
-		"user_id", comment.UserID,
-		"content", comment.Content)
-	return 1, nil
+	currentTime := time.Now()
+
+	query := `INSERT INTO comments (post_id, user_id, user_name, avatar_url, content, image_url, created_at, reply_to_id)
+	VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
+	`
+	var newID int64
+	err := r.db.QueryRowContext(ctx, query, comment.PostID, comment.UserID, comment.UserName, comment.AvatarURL, comment.Content, comment.ImageURL, currentTime, comment.ReplyToID).Scan(&newID)
+	if err != nil {
+		slog.Error("Ошибка создания комментария", "error", err)
+		return 0, err
+	}
+	slog.Info("Комментарий создан")
+	return newID, nil
 }
 
 // Delete удаляет комментарий по ID

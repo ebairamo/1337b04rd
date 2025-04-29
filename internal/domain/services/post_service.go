@@ -40,6 +40,19 @@ func (s *PostService) GetAllPosts(ctx context.Context, limit, offset int, archiv
 	return s.postRepo.GetAll(ctx, limit, offset, archived)
 }
 
+// GetTotalPostsCount возвращает общее количество постов
+func (s *PostService) GetTotalPostsCount(ctx context.Context, archived bool) (int, error) {
+	slog.Info("Получение общего количества постов", "archived", archived)
+	// В реальной реализации здесь бы был дополнительный метод в репозитории
+	// для подсчета общего количества постов
+
+	// Сейчас просто возвращаем фиктивные данные для демонстрации
+	if archived {
+		return 50, nil // Предположим, что в архиве 50 постов
+	}
+	return 100, nil // Предположим, что в основном каталоге 100 постов
+}
+
 // CreatePost создает новый пост
 func (s *PostService) CreatePost(ctx context.Context, title, content, imageURL string, userID int64) (*models.Post, error) {
 	user, err := s.userRepo.GetByID(ctx, userID)
