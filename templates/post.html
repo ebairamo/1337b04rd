@@ -203,7 +203,7 @@
             background-color: #357ab8;
         }
         
-        /* Стили для номеров ID */
+        /* Стили для номеров ID и ответов */
         .id-link {
             display: inline-block;
             color: #4a90e2;
@@ -224,28 +224,108 @@
             font-style: italic;
             color: #777;
             margin-bottom: 8px;
+            padding: 5px 10px;
+            background-color: #f0f7ff;
+            border-radius: 5px;
+            display: none; /* Скрыто по умолчанию */
         }
         
-        /* Для отладки форм */
-        .debug-info {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #f5f5f5;
-            border: 1px dashed #ccc;
-            font-family: monospace;
+        .reply-info.active {
+            display: block;
+        }
+        
+        .reply-button {
+            display: inline-block;
+            background-color: #f0f7ff;
+            color: #4a90e2;
+            padding: 3px 8px;
+            border-radius: 4px;
             font-size: 12px;
-            color: #666;
+            margin-left: 5px;
+            cursor: pointer;
+            border: 1px solid #d0e5ff;
+        }
+        
+        .reply-button:hover {
+            background-color: #d0e5ff;
+        }
+        
+        .cancel-reply {
+            color: #e74c3c;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 12px;
+        }
+        
+        .cancel-reply:hover {
+            text-decoration: underline;
+        }
+        
+        /* Подсветка комментария, на который отвечаем */
+        .highlight {
+            animation: highlight 2s ease-in-out;
+        }
+        
+        @keyframes highlight {
+            0% { background-color: #f9f9f9; }
+            50% { background-color: #ffff99; }
+            100% { background-color: #f9f9f9; }
         }
     </style>
     <script>
         // Функция для заполнения ID в поле ответа на комментарий
-        function replyTo(id) {
+        function replyTo(id, username) {
+            // Устанавливаем ID в скрытое поле
             document.getElementById('reply_to_id').value = id;
-            document.getElementById('reply-info').textContent = 'Ответ на комментарий #' + id;
-            document.getElementById('comment-textarea').focus();
-            // Прокрутка к форме
-            document.getElementById('comment-form').scrollIntoView({ behavior: 'smooth' });
+            
+            // Отображаем информацию о том, на чей комментарий отвечаем
+            const replyInfo = document.getElementById('reply-info');
+            replyInfo.textContent = 'Ответ на комментарий #' + id + ' от ' + username;
+            replyInfo.classList.add('active');
+            
+            // Показываем кнопку отмены
+            document.getElementById('cancel-reply').style.display = 'inline';
+            
+            // Подсвечиваем комментарий, на который отвечаем
+            const targetComment = document.getElementById('comment-' + id);
+            if (targetComment) {
+                targetComment.classList.add('highlight');
+                // Прокручиваем к комментарию
+                targetComment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            // Прокручиваем к форме
+            setTimeout(function() {
+                document.getElementById('comment-form').scrollIntoView({ behavior: 'smooth' });
+                document.getElementById('comment-textarea').focus();
+            }, 500);
         }
+        
+        // Функция для очистки ответа
+        function cancelReply() {
+            document.getElementById('reply_to_id').value = '';
+            document.getElementById('reply-info').classList.remove('active');
+            document.getElementById('cancel-reply').style.display = 'none';
+            
+            // Убираем подсветку со всех комментариев
+            const highlightedComments = document.querySelectorAll('.highlight');
+            highlightedComments.forEach(function(comment) {
+                comment.classList.remove('highlight');
+            });
+        }
+        
+        // При загрузке страницы проверяем, есть ли в URL fragment идентификатор комментария
+        window.onload = function() {
+            const hash = window.location.hash;
+            if (hash && hash.startsWith('#comment-')) {
+                const commentId = hash.substring(9); // Получаем ID после #comment-
+                const targetComment = document.getElementById('comment-' + commentId);
+                if (targetComment) {
+                    targetComment.classList.add('highlight');
+                    targetComment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        };
     </script>
 </head>
 <body>
@@ -254,7 +334,7 @@
     <a href="/catalog.html" class="return-link">← Вернуться к каталогу</a>
 </header>
 <main>
-    <!-- Main Post -->
+    <!-- Основной пост -->
     <div class="post">
         <div class="header">
             <img src="{{.AvatarURL}}" alt="Аватар пользователя" width="50" height="50">
@@ -262,7 +342,8 @@
                 <div class="username">{{.UserName}}</div>
                 <div class="post-meta">
                     <span>{{.CreatedAt.Format "02.01.2006 15:04"}}</span>
-                    <span>• ID: <span class="id-link" onclick="replyTo({{.ID}})">{{.ID}}</span></span>
+                    <span>• ID: <span class="id-link" onclick="replyTo({{.ID}}, '{{.UserName}}')">{{.ID}}</span></span>
+                    <span class="reply-button" onclick="replyTo({{.ID}}, '{{.UserName}}')">Ответить</span>
                 </div>
             </div>
         </div>
@@ -279,26 +360,27 @@
         </div>
     </div>
     
-    <!-- Comments Section -->
+    <!-- Секция комментариев -->
     <div class="comments-section">
         <h2 class="comments-title">Комментарии</h2>
         {{if .Comments}}
         <ul class="comment-list">
             {{range .Comments}}
-            <li class="comment">
+            <li id="comment-{{.ID}}" class="comment">
                 <div class="header">
                     <img src="{{.AvatarURL}}" alt="Аватар пользователя" width="40" height="40">
                     <div class="user-info">
                         <div class="username">{{.UserName}}</div>
                         <div class="post-meta">
                             <span>{{.CreatedAt.Format "02.01.2006 15:04"}}</span>
-                            <span>• ID: <span class="id-link" onclick="replyTo({{.ID}})">{{.ID}}</span></span>
+                            <span>• ID: <span class="id-link">{{.ID}}</span></span>
+                            <span class="reply-button" onclick="replyTo({{.ID}}, '{{.UserName}}')">Ответить</span>
                         </div>
                     </div>
                 </div>
                 {{if .ReplyToID}}
-                <div class="reply-info">
-                    Ответ на: <span class="id-link" onclick="replyTo({{.ReplyToID}})">{{.ReplyToID}}</span>
+                <div class="reply-info active">
+                    Ответ на: <a href="#comment-{{.ReplyToID}}" class="id-link">{{.ReplyToID}}</a>
                 </div>
                 {{end}}
                 <div class="content">
@@ -319,29 +401,27 @@
         {{end}}
     </div>
 
-    <!-- Add a Comment Section -->
+    <!-- Форма добавления комментария -->
     <div class="add-comment">
         <h3>Добавить комментарий</h3>
         <form id="comment-form" action="/submit-comment" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="post_id" value="{{.ID}}">
             <input type="hidden" id="reply_to_id" name="reply_to_id" value="">
-            <div id="reply-info" class="reply-info" style="display:none;"></div>
-            <textarea id="comment-textarea" name="comment" placeholder="Напишите ваш комментарий здесь..."></textarea>
+            
+            <div id="reply-info" class="reply-info">
+                Ответ на комментарий
+                <span id="cancel-reply" class="cancel-reply" onclick="cancelReply()" style="display:none;">Отменить ответ</span>
+            </div>
+            
+            <textarea id="comment-textarea" name="comment" placeholder="Напишите ваш комментарий здесь..." required></textarea>
+            
             <div class="file-input">
-                <label for="file">Прикрепить изображение:</label>
+                <label for="file">Прикрепить изображение (необязательно):</label>
                 <input id="file" name="file" type="file" accept="image/*">
             </div>
+            
             <button type="submit" class="submit-button">Отправить комментарий</button>
         </form>
-        
-        <!-- Для отладки можно временно добавить 
-        <div class="debug-info">
-            <p>Post ID: {{.ID}}</p>
-            <p>Form Action: /submit-comment</p>
-            <p>Method: POST</p>
-            <p>Enctype: multipart/form-data</p>
-        </div>
-        -->
     </div>
 </main>
 </body>
