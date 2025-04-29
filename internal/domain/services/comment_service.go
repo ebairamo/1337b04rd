@@ -1,11 +1,13 @@
 package services
 
 import (
-	"1337b04rd/internal/domain/models"
-	"1337b04rd/internal/ports/repositories"
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
+
+	"1337b04rd/internal/domain/models"
+	"1337b04rd/internal/ports/repositories"
 )
 
 // CommentService предоставляет бизнес-логику для работы с комментариями
@@ -36,7 +38,7 @@ func (s *CommentService) GetCommentByID(ctx context.Context, id int64) (*models.
 
 // GetCommentsByPostID возвращает комментарии к посту
 func (s *CommentService) GetCommentsByPostID(ctx context.Context, postID int64, limit, offset int) ([]*models.Comment, error) {
-	slog.Info("Получение комментариев к посту", "post_id", postID)
+	slog.Info("Получение комментариев к посту", "post_id", postID, "limit", limit, "offset", offset)
 	return s.commentRepo.GetByPostID(ctx, postID, limit, offset)
 }
 
@@ -49,15 +51,23 @@ func (s *CommentService) CreateComment(
 	imageURL string,
 	replyToID int64,
 ) (*models.Comment, error) {
-	// В заглушке просто возвращаем статические данные
-	slog.Info("Создание комментария",
-		"post_id", postID,
-		"user_id", userID,
-		"content_length", len(content))
+	// Проверяем существование поста
+	post, err := s.postRepo.GetByID(ctx, postID)
+	if err != nil {
+		slog.Error("Ошибка при получении поста", "post_id", postID, "error", err)
+		return nil, fmt.Errorf("пост не найден: %w", err)
+	}
 
+	if post.IsArchived {
+		slog.Warn("Попытка создать комментарий к архивному посту", "post_id", postID, "user_id", userID)
+		return nil, fmt.Errorf("нельзя комментировать архивные посты")
+	}
+
+	// Получаем информацию о пользователе
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		// Если не удалось получить пользователя, используем анонима
+		slog.Error("Ошибка при получении пользователя", "user_id", userID, "error", err)
+		// В случае ошибки, используем дефолтные значения
 		user = &models.User{
 			ID:        userID,
 			Username:  "Anonymous",
@@ -65,6 +75,17 @@ func (s *CommentService) CreateComment(
 		}
 	}
 
+	// Проверяем существование родительского комментария, если указан
+	if replyToID > 0 {
+		_, err := s.commentRepo.GetByID(ctx, replyToID)
+		if err != nil {
+			slog.Error("Ошибка при получении родительского комментария", "reply_to_id", replyToID, "error", err)
+			// Если родительский комментарий не найден, сбрасываем replyToID
+			replyToID = 0
+		}
+	}
+
+	// Создаем объект комментария
 	comment := &models.Comment{
 		PostID:    postID,
 		UserID:    userID,
@@ -76,8 +97,21 @@ func (s *CommentService) CreateComment(
 		ReplyToID: replyToID,
 	}
 
-	// В реальной реализации здесь было бы сохранение в БД
-	comment.ID = 1 // Заглушка для ID
+	// Сохраняем комментарий в БД
+	commentID, err := s.commentRepo.Create(ctx, comment)
+	if err != nil {
+		slog.Error("Ошибка при сохранении комментария", "error", err)
+		return nil, fmt.Errorf("не удалось сохранить комментарий: %w", err)
+	}
+
+	// Устанавливаем ID созданного комментария
+	comment.ID = commentID
+
+	slog.Info("Комментарий успешно создан",
+		"comment_id", comment.ID,
+		"post_id", postID,
+		"user_id", userID,
+		"reply_to_id", replyToID)
 
 	return comment, nil
 }

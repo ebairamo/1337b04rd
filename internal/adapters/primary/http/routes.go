@@ -2,6 +2,7 @@ package http
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"strings"
 
@@ -26,14 +27,18 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	// Создание middleware
 	authMiddleware := middleware.NewAuthMiddleware(userService)
+	loggingMiddleware := middleware.NewLoggingMiddleware()
 
 	// Создание обработчиков
 	userHandler := handlers.NewUserHandler(userService)
 	postHandler := handlers.NewPostHandler(postService, userService, commentService)
 	commentHandler := handlers.NewCommentHandler(commentService, userService)
+	pageHandler := handlers.HandlePage
 
 	// Функция-помощник для оборачивания обработчиков с аутентификацией
-	withAuth := authMiddleware.Handler
+	withAuth := func(handler http.Handler) http.Handler {
+		return loggingMiddleware.Handler(authMiddleware.Handler(handler))
+	}
 
 	// Регистрация маршрутов для API с аутентификацией
 	mux.Handle("/api/", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +74,12 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	// Маршруты для отправки форм
 	mux.Handle("/submit-post", withAuth(http.HandlerFunc(postHandler.HandleCreatePost)))
-	mux.Handle("/submit-comment", withAuth(http.HandlerFunc(commentHandler.HandleCreateComment)))
+
+	// Обработчик для создания комментариев
+	mux.Handle("/submit-comment", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Получен запрос на создание комментария: %s %s", r.Method, r.URL.Path)
+		commentHandler.HandleCreateComment(w, r)
+	})))
 
 	// Маршруты для страниц каталога и архива
 	mux.Handle("/catalog.html", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +94,7 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 	})))
 
 	// Статические страницы без аутентификации
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			// Перенаправляем на каталог при запросе корневой страницы
 			http.Redirect(w, r, "/catalog.html", http.StatusFound)
@@ -92,8 +102,8 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 		}
 
 		// Для всех остальных запросов используем обработчик страниц
-		handlers.HandlePage(w, r)
-	})
+		pageHandler(w, r)
+	})))
 }
 
 // handleUserRoutes обрабатывает маршруты пользователей

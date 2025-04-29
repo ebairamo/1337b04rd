@@ -108,10 +108,15 @@ func (h *CommentHandler) HandleGetPostComments(w http.ResponseWriter, r *http.Re
 
 // HandleCreateComment обрабатывает POST запрос для создания комментария
 func (h *CommentHandler) HandleCreateComment(w http.ResponseWriter, r *http.Request) {
+	// Проверяем метод запроса
 	if r.Method != http.MethodPost {
+		slog.Error("Неверный метод", "method", r.Method)
 		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
 		return
 	}
+
+	// Логирование для отладки
+	slog.Info("Получен запрос на создание комментария", "path", r.URL.Path, "method", r.Method)
 
 	// Получаем пользователя из контекста
 	user := middleware.GetUserFromContext(r.Context())
@@ -122,15 +127,25 @@ func (h *CommentHandler) HandleCreateComment(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Парсим данные формы
-	err := r.ParseMultipartForm(10 << 20) // 10 MB
-	if err != nil {
-		slog.Error("Ошибка парсинга формы", "error", err)
-		http.Error(w, "Неверный формат данных", http.StatusBadRequest)
-		return
+	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10 МБ
+		slog.Error("Ошибка парсинга multipart формы", "error", err)
+		if err = r.ParseForm(); err != nil {
+			slog.Error("Ошибка парсинга формы", "error", err)
+			http.Error(w, "Ошибка обработки данных формы", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Получаем ID поста
 	postIDStr := r.FormValue("post_id")
+	slog.Info("Получен ID поста из формы", "post_id", postIDStr)
+
+	if postIDStr == "" {
+		slog.Error("ID поста не предоставлен")
+		http.Error(w, "Необходимо указать ID поста", http.StatusBadRequest)
+		return
+	}
+
 	postID, err := strconv.ParseInt(postIDStr, 10, 64)
 	if err != nil {
 		slog.Error("Невозможно преобразовать ID поста в число", "post_id", postIDStr, "error", err)
@@ -140,7 +155,10 @@ func (h *CommentHandler) HandleCreateComment(w http.ResponseWriter, r *http.Requ
 
 	// Получаем текст комментария
 	content := r.FormValue("comment")
+	slog.Info("Получен текст комментария", "content_length", len(content))
+
 	if content == "" {
+		slog.Error("Текст комментария пуст")
 		http.Error(w, "Комментарий не может быть пустым", http.StatusBadRequest)
 		return
 	}
@@ -152,30 +170,32 @@ func (h *CommentHandler) HandleCreateComment(w http.ResponseWriter, r *http.Requ
 		replyToID, err = strconv.ParseInt(replyToIDStr, 10, 64)
 		if err != nil {
 			slog.Error("Невозможно преобразовать ID родительского комментария в число", "reply_to_id", replyToIDStr, "error", err)
-			http.Error(w, "Неверный ID родительского комментария", http.StatusBadRequest)
-			return
+			// Не возвращаем ошибку, просто игнорируем reply_to_id
+			replyToID = 0
 		}
 	}
 
-	// Получаем файл изображения
-	file, handler, err := r.FormFile("file")
+	// Получаем файл изображения (если есть)
 	var imageURL string
+	file, handler, err := r.FormFile("file")
 	if err == nil && file != nil {
 		defer file.Close()
+		slog.Info("Файл получен", "filename", handler.Filename, "size", handler.Size)
 
-		// В реальной реализации здесь было бы сохранение изображения
-		// и получение URL. Для заглушки просто логируем информацию.
-		slog.Info("Загружен файл", "filename", handler.Filename, "size", handler.Size)
-		imageURL = "https://example.com/images/placeholder.jpg"
+		// TODO: Сохранить файл в S3 и получить URL
+		// Здесь должна быть реализация сохранения файла
+		imageURL = "https://rickandmortyapi.com/api/character/avatar/1.jpeg" // Заглушка
 	}
 
-	// Создаем комментарий, используя данные пользователя из сессии
-	_, err = h.commentService.CreateComment(r.Context(), postID, user.ID, content, imageURL, replyToID)
+	// Создаем комментарий через сервис
+	comment, err := h.commentService.CreateComment(r.Context(), postID, user.ID, content, imageURL, replyToID)
 	if err != nil {
 		slog.Error("Ошибка создания комментария", "error", err)
-		http.Error(w, "Не удалось создать комментарий", http.StatusInternalServerError)
+		http.Error(w, "Не удалось создать комментарий: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	slog.Info("Комментарий успешно создан", "comment_id", comment.ID, "post_id", postID)
 
 	// Перенаправляем на страницу поста
 	http.Redirect(w, r, "/post/"+strconv.FormatInt(postID, 10), http.StatusSeeOther)
