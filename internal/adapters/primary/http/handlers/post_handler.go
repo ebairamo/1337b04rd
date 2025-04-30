@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"html/template"
+	"io"
 	"log/slog"
 	"math"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"1337b04rd/internal/adapters/primary/http/middleware"
+	"1337b04rd/internal/adapters/secondary/s3"
 	"1337b04rd/internal/domain/models"
 	"1337b04rd/internal/domain/services"
 )
@@ -253,10 +255,28 @@ func (h *PostHandler) HandleCreatePost(w http.ResponseWriter, r *http.Request) {
 	if err == nil && file != nil {
 		defer file.Close()
 
-		// TODO: Сохранить файл изображения и получить URL
-		// Здесь просто используем заглушку для URL
-		slog.Info("Загружен файл", "filename", handler.Filename, "size", handler.Size)
-		imageURL = "https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png"
+		// Читаем содержимое файла
+		buffer, err := io.ReadAll(file)
+		if err != nil {
+			slog.Error("Ошибка чтения файла", "error", err)
+			http.Error(w, "Ошибка при чтении файла", http.StatusInternalServerError)
+			return
+		}
+
+		// Генерируем ключ для объекта и загружаем изображение, если доступно хранилище
+		if storage := s3.GetImageStorage(); storage != nil {
+			objectKey := storage.GenerateObjectKey(handler.Filename)
+			imageURL, err = storage.UploadImage(r.Context(), "posts", objectKey, buffer)
+			if err != nil {
+				slog.Error("Ошибка загрузки изображения", "error", err)
+				// Продолжаем без изображения, если произошла ошибка
+				imageURL = ""
+			} else {
+				slog.Info("Изображение загружено", "filename", handler.Filename, "size", handler.Size, "url", imageURL)
+			}
+		} else {
+			slog.Warn("Хранилище изображений не инициализировано")
+		}
 	}
 
 	// Создаем пост, используя ID пользователя из сессии

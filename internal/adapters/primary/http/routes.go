@@ -10,6 +10,7 @@ import (
 	"1337b04rd/internal/adapters/primary/http/middleware"
 	"1337b04rd/internal/adapters/secondary/postgres"
 	"1337b04rd/internal/adapters/secondary/rickandmorty"
+	"1337b04rd/internal/adapters/secondary/s3"
 	"1337b04rd/internal/domain/services"
 )
 
@@ -17,6 +18,7 @@ import (
 func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 	// Инициализация сервисов и репозиториев
 	avatarService := rickandmorty.NewAvatarService()
+	imageStorage := s3.NewImageStorage()
 	userRepo := postgres.NewUserRepository(db, avatarService)
 	postRepo := postgres.NewPostRepository(db)
 	commentRepo := postgres.NewCommentRepository(db)
@@ -24,6 +26,9 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 	userService := services.NewUserService(userRepo)
 	postService := services.NewPostService(postRepo, userRepo)
 	commentService := services.NewCommentService(commentRepo, userRepo, postRepo)
+
+	// Инициализируем глобальное хранилище для использования в обработчиках
+	s3.InitImageStorage(imageStorage)
 
 	// Создание middleware
 	authMiddleware := middleware.NewAuthMiddleware(userService)

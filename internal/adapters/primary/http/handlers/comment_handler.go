@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"1337b04rd/internal/adapters/primary/http/middleware"
+	"1337b04rd/internal/adapters/secondary/s3"
 	"1337b04rd/internal/domain/services"
 )
 
@@ -182,9 +184,28 @@ func (h *CommentHandler) HandleCreateComment(w http.ResponseWriter, r *http.Requ
 		defer file.Close()
 		slog.Info("Файл получен", "filename", handler.Filename, "size", handler.Size)
 
-		// TODO: Сохранить файл в S3 и получить URL
-		// Здесь должна быть реализация сохранения файла
-		imageURL = "https://rickandmortyapi.com/api/character/avatar/1.jpeg" // Заглушка
+		// Читаем содержимое файла
+		buffer, err := io.ReadAll(file)
+		if err != nil {
+			slog.Error("Ошибка чтения файла", "error", err)
+			http.Error(w, "Ошибка при чтении файла", http.StatusInternalServerError)
+			return
+		}
+
+		// Генерируем ключ для объекта и загружаем изображение, если доступно хранилище
+		if storage := s3.GetImageStorage(); storage != nil {
+			objectKey := storage.GenerateObjectKey(handler.Filename)
+			imageURL, err = storage.UploadImage(r.Context(), "comments", objectKey, buffer)
+			if err != nil {
+				slog.Error("Ошибка загрузки изображения", "error", err)
+				// Продолжаем без изображения, если произошла ошибка
+				imageURL = ""
+			} else {
+				slog.Info("Изображение комментария загружено", "filename", handler.Filename, "size", handler.Size, "url", imageURL)
+			}
+		} else {
+			slog.Warn("Хранилище изображений не инициализировано")
+		}
 	}
 
 	// Создаем комментарий через сервис

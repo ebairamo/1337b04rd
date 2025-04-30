@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: elite_user
+      POSTGRES_PASSWORD: elite_pass
+      POSTGRES_DB: eliteboard_db
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U elite_user -d eliteboard_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    ports:
+      - "8081:8081"
+      - "40000:40000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: elite_user
+      DB_PASSWORD: elite_pass
+      DB_NAME: eliteboard_db
+      S3_HOST: host.docker.internal
+      S3_PORT: 9000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
