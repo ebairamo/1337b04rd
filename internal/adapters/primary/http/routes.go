@@ -1,10 +1,15 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"1337b04rd/internal/adapters/primary/http/handlers"
 	"1337b04rd/internal/adapters/primary/http/middleware"
@@ -16,6 +21,19 @@ import (
 
 // RegisterRoutes регистрирует все маршруты приложения
 func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
+	// Создаем контекст для всего приложения
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// При завершении работы сервера отменяем контекст
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		slog.Info("Получен сигнал завершения, останавливаем фоновые процессы")
+		cancel()
+		os.Exit(0)
+	}()
+
 	// Инициализация сервисов и репозиториев
 	avatarService := rickandmorty.NewAvatarService()
 	imageStorage := s3.NewImageStorage()
@@ -26,6 +44,10 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 	userService := services.NewUserService(userRepo)
 	postService := services.NewPostService(postRepo, userRepo)
 	commentService := services.NewCommentService(commentRepo, userRepo, postRepo)
+	archiverService := services.NewArchiverService(postRepo, commentRepo)
+
+	// Запускаем фоновую задачу архивирования
+	archiverService.StartArchiveJob(ctx)
 
 	// Инициализируем глобальное хранилище для использования в обработчиках
 	s3.InitImageStorage(imageStorage)

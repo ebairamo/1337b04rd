@@ -228,3 +228,51 @@ func (r *CommentRepository) Delete(ctx context.Context, id int64) error {
 	slog.Info("Комментарий успешно удален", "id", id)
 	return nil
 }
+
+// GetLastCommentByPostID возвращает последний комментарий к посту
+func (r *CommentRepository) GetLastCommentByPostID(ctx context.Context, postID int64) (*models.Comment, error) {
+	query := `SELECT 
+        id, post_id, user_id, user_name, avatar_url, content, image_url, created_at, reply_to_id
+        FROM comments 
+        WHERE post_id = $1 
+        ORDER BY created_at DESC 
+        LIMIT 1`
+
+	var comment models.Comment
+	var avatarURL, imageURL sql.NullString
+	var replyToID sql.NullInt64
+
+	err := r.db.QueryRowContext(ctx, query, postID).Scan(
+		&comment.ID,
+		&comment.PostID,
+		&comment.UserID,
+		&comment.UserName,
+		&avatarURL,
+		&comment.Content,
+		&imageURL,
+		&comment.CreatedAt,
+		&replyToID,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Это нормальная ситуация, у поста просто нет комментариев
+			return nil, nil
+		}
+		slog.Error("Ошибка получения последнего комментария", "post_id", postID, "error", err)
+		return nil, err
+	}
+
+	// Обрабатываем null-значения
+	if avatarURL.Valid {
+		comment.AvatarURL = avatarURL.String
+	}
+	if imageURL.Valid {
+		comment.ImageURL = imageURL.String
+	}
+	if replyToID.Valid {
+		comment.ReplyToID = replyToID.Int64
+	}
+
+	return &comment, nil
+}

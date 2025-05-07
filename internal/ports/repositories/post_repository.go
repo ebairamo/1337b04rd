@@ -13,8 +13,12 @@ type PostRepository interface {
 	// GetAll возвращает все посты с возможной фильтрацией
 	GetAll(ctx context.Context, limit, offset int, archived bool) ([]*models.Post, error)
 
+	// GetAllForArchiving возвращает все неархивированные посты для проверки архивации
+	GetAllForArchiving(ctx context.Context) ([]*models.Post, error)
+
 	// Create создает новый пост
 	Create(ctx context.Context, post *models.Post) (int64, error)
+
 	// Archive архивирует пост
 	Archive(ctx context.Context, id int64) error
 }

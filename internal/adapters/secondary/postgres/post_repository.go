@@ -110,9 +110,65 @@ func (r *PostRepository) Create(ctx context.Context, post *models.Post) (int64, 
 	return newID, err
 }
 
+// GetAllForArchiving возвращает все неархивированные посты для проверки архивации
+func (r *PostRepository) GetAllForArchiving(ctx context.Context) ([]*models.Post, error) {
+	query := `SELECT 
+        id, title, content, image_url, user_id, user_name, avatar_url, created_at, is_archived 
+        FROM posts 
+        WHERE is_archived = false`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		slog.Error("Ошибка запроса постов для архивации", "error", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []*models.Post
+
+	for rows.Next() {
+		var post models.Post
+		err := rows.Scan(
+			&post.ID, &post.Title, &post.Content, &post.ImageURL,
+			&post.UserID, &post.UserName, &post.AvatarURL,
+			&post.CreatedAt, &post.IsArchived)
+		if err != nil {
+			slog.Error("Ошибка сканирования поста", "error", err)
+			return nil, err
+		}
+		posts = append(posts, &post)
+	}
+
+	if err := rows.Err(); err != nil {
+		slog.Error("Ошибка при обработке строк из БД", "error", err)
+		return nil, err
+	}
+
+	slog.Info("Получено постов для проверки архивации", "count", len(posts))
+	return posts, nil
+}
+
 // Archive архивирует пост
 func (r *PostRepository) Archive(ctx context.Context, id int64) error {
-	// TODO: реализовать архивацию поста в БД
-	slog.Info("Заглушка: архивация поста", "id", id)
+	query := `UPDATE posts SET is_archived = true WHERE id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		slog.Error("Ошибка при архивации поста", "id", id, "error", err)
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		slog.Error("Ошибка получения количества затронутых строк", "error", err)
+		return err
+	}
+
+	if rowsAffected == 0 {
+		slog.Warn("Пост для архивации не найден", "id", id)
+		return fmt.Errorf("пост с id %d не найден", id)
+	}
+
+	slog.Info("Пост успешно архивирован", "id", id)
 	return nil
 }

@@ -13,6 +13,9 @@ type CommentRepository interface {
 	// GetByPostID возвращает все комментарии к указанному посту
 	GetByPostID(ctx context.Context, postID int64, limit, offset int) ([]*models.Comment, error)
 
+	// GetLastCommentByPostID возвращает последний комментарий к посту
+	GetLastCommentByPostID(ctx context.Context, postID int64) (*models.Comment, error)
+
 	// Create создает новый комментарий
 	Create(ctx context.Context, comment *models.Comment) (int64, error)
 
