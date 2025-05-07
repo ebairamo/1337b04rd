@@ -1,3 +1,5 @@
+// internal/adapters/primary/http/routes.go
+
 package http
 
 import (
@@ -22,13 +24,13 @@ import (
 	"1337b04rd/internal/domain/services"
 )
 
-// Глобальная переменная для отслеживания времени запуска приложения
-var startTime time.Time
-
 // RegisterRoutes регистрирует все маршруты приложения
 func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
+	// Используем обычный log пакет для гарантированного вывода
+	log.Println("Регистрация маршрутов...")
+
 	// Время запуска приложения для отслеживания uptime
-	startTime = time.Now()
+	startTime := time.Now()
 
 	// Создаем контекст для всего приложения
 	ctx, cancel := context.WithCancel(context.Background())
@@ -63,8 +65,7 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 
 	// Создание middleware
 	authMiddleware := middleware.NewAuthMiddleware(userService)
-	loggingMiddleware := middleware.NewLoggingMiddleware(true) // включаем подробное логирование
-	errorHandler := handlers.NewErrorHandler(false)            // false для production, true для разработки
+	loggingMiddleware := middleware.NewLoggingMiddleware(true)
 
 	// Создание обработчиков
 	userHandler := handlers.NewUserHandler(userService)
@@ -72,24 +73,13 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 	commentHandler := handlers.NewCommentHandler(commentService, userService)
 	pageHandler := handlers.HandlePage
 
-	// Функция-помощник для оборачивания обработчиков с полным набором middleware
-	withFullMiddleware := func(handler http.Handler) http.Handler {
-		return errorHandler.RecoverMiddleware(
-			loggingMiddleware.Handler(
-				authMiddleware.Handler(handler),
-			),
-		)
-	}
-
-	// Функция-помощник для оборачивания обработчиков только авторизацией
+	// Функция-помощник для оборачивания обработчиков с аутентификацией
 	withAuth := func(handler http.Handler) http.Handler {
-		return loggingMiddleware.Handler(
-			authMiddleware.Handler(handler),
-		)
+		return loggingMiddleware.Handler(authMiddleware.Handler(handler))
 	}
 
-	// Регистрация маршрутов для API с полным набором middleware
-	mux.Handle("/api/", withFullMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Регистрация маршрутов для API с аутентификацией
+	mux.Handle("/api/", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
 		// Маршруты для пользователей
@@ -114,27 +104,27 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 	})))
 
 	// Маршруты для работы с постами
-	mux.Handle("/post/", withFullMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/post/", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := strings.TrimPrefix(r.URL.Path, "/post/")
 		r.URL.Path = "/api/posts/" + id
 		postHandler.HandleGetPost(w, r)
 	})))
 
 	// Маршруты для отправки форм
-	mux.Handle("/submit-post", withFullMiddleware(http.HandlerFunc(postHandler.HandleCreatePost)))
+	mux.Handle("/submit-post", withAuth(http.HandlerFunc(postHandler.HandleCreatePost)))
 
 	// Обработчик для создания комментариев
-	mux.Handle("/submit-comment", withFullMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/submit-comment", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Получен запрос на создание комментария: %s %s", r.Method, r.URL.Path)
 		commentHandler.HandleCreateComment(w, r)
 	})))
 
 	// Маршруты для страниц каталога и архива
-	mux.Handle("/catalog.html", withFullMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/catalog.html", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		postHandler.HandleGetAllPosts(w, r)
 	})))
 
-	mux.Handle("/archive.html", withFullMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/archive.html", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		q.Set("archived", "true")
 		r.URL.RawQuery = q.Encode()
@@ -189,7 +179,7 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 	}))
 
 	// Статические страницы
-	mux.Handle("/", withFullMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			// Перенаправляем на каталог при запросе корневой страницы
 			http.Redirect(w, r, "/catalog.html", http.StatusFound)
@@ -199,6 +189,8 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 		// Для всех остальных запросов используем обработчик страниц
 		pageHandler(w, r)
 	})))
+
+	log.Println("Маршруты зарегистрированы")
 }
 
 // handleUserRoutes обрабатывает маршруты пользователей

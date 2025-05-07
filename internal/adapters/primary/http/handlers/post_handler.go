@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"1337b04rd/internal/adapters/primary/http/middleware"
 	"1337b04rd/internal/adapters/secondary/s3"
@@ -181,7 +182,32 @@ func (h *PostHandler) HandleGetAllPosts(w http.ResponseWriter, r *http.Request) 
 		pageNumbers = append(pageNumbers, int(i))
 	}
 
-	paginationData := PaginationData{
+	// Определяем значения заголовков в зависимости от того, архив это или каталог
+	var title, pageTitle string
+	if archived {
+		title = "Архив"
+		pageTitle = "Архив постов"
+	} else {
+		title = "Каталог"
+		pageTitle = "Каталог постов"
+	}
+
+	// Теперь создаем данные для шаблона
+	templateData := struct {
+		Title       string
+		PageTitle   string
+		CurrentYear int
+		Posts       []*models.Post
+		CurrentPage int
+		PrevPage    int
+		NextPage    int
+		TotalPages  int
+		PageNumbers []int
+		Limit       int
+	}{
+		Title:       title,
+		PageTitle:   pageTitle,
+		CurrentYear: time.Now().Year(),
 		Posts:       posts,
 		CurrentPage: page,
 		PrevPage:    prevPage,
@@ -191,28 +217,27 @@ func (h *PostHandler) HandleGetAllPosts(w http.ResponseWriter, r *http.Request) 
 		Limit:       limit,
 	}
 
-	// Проверяем, нужно ли вернуть JSON или HTML
-	contentType := r.Header.Get("Accept")
-	if strings.Contains(contentType, "application/json") {
-		// Возвращаем JSON
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(paginationData)
-	} else {
-		// Возвращаем HTML страницу каталога или архива
-		templateFile := "templates/catalog.html"
-		if archived {
-			templateFile = "templates/archive.html"
-		}
+	// Определяем, какой шаблон использовать
+	templateName := "catalog.html"
+	if archived {
+		templateName = "archive.html"
+	}
 
-		tmpl, err := template.ParseFiles(templateFile)
-		if err != nil {
-			slog.Error("Ошибка загрузки шаблона", "error", err)
-			http.Error(w, "Ошибка шаблона", http.StatusInternalServerError)
-			return
-		}
+	// Сначала парсим base.html, а затем конкретный шаблон
+	tmpl, err := template.ParseFiles("templates/base.html", "templates/"+templateName)
+	if err != nil {
+		slog.Error("Ошибка загрузки шаблона", "template", templateName, "error", err)
+		http.Error(w, "Ошибка шаблона", http.StatusInternalServerError)
+		return
+	}
 
-		// Передаем данные пагинации в шаблон
-		tmpl.Execute(w, paginationData)
+	// Передаем данные в шаблон
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	err = tmpl.Execute(w, templateData)
+	if err != nil {
+		slog.Error("Ошибка выполнения шаблона", "template", templateName, "error", err)
+		http.Error(w, "Ошибка рендеринга", http.StatusInternalServerError)
+		return
 	}
 }
 

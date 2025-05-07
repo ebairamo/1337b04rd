@@ -1,236 +1,141 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>1337b04rd - Архив</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #E6E9F5;
-            color: #333;
-            line-height: 1.6;
-        }
+{{define "styles"}}
+<style>
+    /* Стили для сетки постов */
+    .posts .list {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        list-style-type: none;
+        padding: 0;
+    }
 
-        header {
-            text-align: center;
-            padding: 20px 0;
-            background-color: #fff;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        
-        .site-title {
-            font-size: 28px;
-            margin-bottom: 5px;
-        }
-        
-        .page-title {
-            font-size: 22px;
-            color: #555;
-            margin-top: 0;
-            margin-bottom: 15px;
-        }
-
-        nav {
-            margin: 10px 0;
-        }
-
-        nav a {
-            display: inline-block;
-            margin: 0 10px;
-            text-decoration: none;
-            color: #4a90e2;
-            font-weight: bold;
-            padding: 5px 10px;
-            border-radius: 4px;
-            transition: background-color 0.2s;
-        }
-
-        nav a:hover {
-            background-color: #f0f5ff;
-            text-decoration: underline;
-        }
-
-        main {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px 40px;
-        }
-
-        .post-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 25px;
-            padding: 10px;
-        }
-
-        .post {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 15px;
-            transition: transform 0.2s, box-shadow 0.2s;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .post:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-        }
-
-        .post a {
-            text-decoration: none;
-            color: inherit;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-
-        .post img {
-            width: 100%;
-            height: 180px;
-            object-fit: cover;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-        
-        .post-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin: 10px 0;
-            color: #222;
-        }
-        
-        .post-meta {
-            font-size: 14px;
-            color: #777;
-            margin-top: auto;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
-        }
-        
-        .archive-indicator {
-            display: inline-block;
-            background-color: #f1c40f;
-            color: #333;
-            font-size: 12px;
-            padding: 3px 8px;
-            border-radius: 4px;
-            margin-right: 5px;
-            vertical-align: middle;
-        }
-        
-        .no-posts {
-            text-align: center;
-            padding: 50px 30px;
-            font-style: italic;
-            color: #777;
-            grid-column: 1 / -1;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        /* Стили для пагинации */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            margin: 20px 0;
-            padding: 10px;
-        }
-        
-        .pagination a, .pagination span {
-            display: inline-block;
-            padding: 8px 16px;
-            margin: 0 4px;
-            text-decoration: none;
-            color: #333;
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            transition: background-color 0.3s;
-        }
-        
-        .pagination a:hover {
-            background-color: #f5f5f5;
-        }
-        
-        .pagination .current {
-            background-color: #4a90e2;
-            color: white;
-            border-color: #4a90e2;
-        }
-        
-        .pagination .disabled {
-            color: #ccc;
-            cursor: not-allowed;
-        }
-    </style>
-</head>
-<body>
-<header>
-    <h1 class="site-title">1337b04rd</h1>
-    <h2 class="page-title">Архив</h2>
-    <nav>
-        [<a href="/catalog.html">Каталог</a>] |
-        [<a href="/create-post.html">Создать пост</a>]
-    </nav>
-</header>
-<main>
-    <section class="post-grid" id="postGrid">
-        {{if .Posts}}
-        {{range .Posts}}
-        <div class="post">
-            <a href="/post/{{.ID}}">
-                {{if .ImageURL}}
-                <img src="{{.ImageURL}}" alt="Изображение поста">
-                {{else}}
-                <img src="data:image/svg+xml;base64,PHN2ZyBmaWxsPSJub25lIiB2aWV3Qm94PSIwIDAgMTg5IDUzIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogIDxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0xMTAuMDQ1IDI0LjIyNGgtMi40MDVsLTQuMzc4IDQuNTAydi05LjAwM2gtMS44NXYxNS4zNTRoMS44NXYtNS4wNTZsNC45OTUgNC45OTQuMDYxLjA2MmgyLjIydi0uMTg1bC01LjYxMS01LjU1em0tMTEuODk4IDguMjIzYy0uNjc5LjY3OC0xLjY2NiAxLjA0OC0yLjc3NSAxLjA0OC0xLjkxMiAwLTMuODI0LTEuMTcyLTMuODI0LTMuODg1IDAtMi4yODEgMS42MDQtMy44ODUgMy44MjQtMy44ODUuOTg2IDAgMS45MTEuMzcgMi42NTEgMS4wNDlsLjA2Mi4wNjEgMS4xNzEtMS4yMzMtLjA2MS0uMDYyQzk4LjA4NSAyNC40OTIgOTYuNzkgMjQgOTUuMzEgMjRjLTMuMzkyIDAtNS42NzMgMi4yODEtNS42NzMgNS42MTEgMCAzLjg4NSAyLjgzNiA1LjYxMiA1LjY3MyA1LjYxMmguMDYyYzEuNDggMCAyLjg5OC0uNTU1IDMuODg0LTEuNjA0bC4wNjItLjA2MS0xLjIzMy0xLjIzNHoiIC8+CiAgPHBhdGggZmlsbD0iI2RlNTgzMyIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNMjYuNSA1M0M0MS4xMzYgNTMgNTMgNDEuMTM2IDUzIDI2LjVTNDEuMTM2IDAgMjYuNSAwIDAgMTEuODY0IDAgMjYuNSAxMS44NjQgNTMgMjYuNSA1M3oiIGNsaXAtcnVsZT0iZXZlbm9kZCIvPgogIDxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0zMS41NzIgNDguMjM4Yy0xLjE5LjQ2Ni0zLjUyLjY3My00Ljg2NS42NzMtMS45NzMgMC00LjgxNC0uMzEtNS44NDktLjc3Ni0uNjM5LTEuOTY4LTIuNTUyLTguMDY2LTQuNDQyLTE1LjgxMS0uMDYxLS4yNTQtLjEyMy0uNTA2LS4xODUtLjc1N2wtLjAwMS0uMDA2Yy0yLjI0Ni05LjE3NC00LjA4LTE2LjY2NyA1Ljk3NC0xOS4wMjEuMDkxLS4wMjIuMTM2LS4xMzEuMDc2LS4yMDQtMS4xNTQtMS4zNjgtMy4zMTUtMS44MTctNi4wNDgtLjg3NC0uMTEyLjAzOS0uMjA5LS4wNzQtLjE0LS4xNy41MzYtLjczOSAxLjU4NC0xLjMwNyAyLjEtMS41NTYuMTA3LS4wNTEuMTAxLS4yMDgtLjAxMi0uMjQzIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiLz4KPC9zdmc+" alt="Изображение поста">
-                {{end}}
-                <h3 class="post-title">
-                    <span class="archive-indicator">Архив</span>
-                    {{.Title}}
-                </h3>
-                <div class="post-meta">
-                    <span>Автор: {{.UserName}}</span> · 
-                    <span>{{.CreatedAt.Format "02.01.2006"}}</span>
-                </div>
-            </a>
-        </div>
-        {{end}}
-        {{else}}
-        <div class="no-posts">
-            <p>В архиве пока нет постов.</p>
-        </div>
-        {{end}}
-    </section>
+    .post {
+        background-color: white;
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        padding: 15px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        width: 240px;
+        min-width: 200px;
+        margin: 10px;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
     
-    <!-- Пагинация -->
-    <div class="pagination">
-        {{if gt .CurrentPage 1}}
-            <a href="?page={{.PrevPage}}&limit={{.Limit}}&archived=true">&laquo; Предыдущая</a>
-        {{else}}
-            <span class="disabled">&laquo; Предыдущая</span>
-        {{end}}
-        
-        {{range $i := .PageNumbers}}
-            {{if eq $i $.CurrentPage}}
-                <span class="current">{{$i}}</span>
-            {{else}}
-                <a href="?page={{$i}}&limit={{$.Limit}}&archived=true">{{$i}}</a>
+    .post:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+    }
+
+    .post a {
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+
+    .post img {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        border-radius: 5px;
+        background-color: #eee;
+        margin-bottom: 10px;
+    }
+    
+    .post-title {
+        font-size: 16px;
+        font-weight: bold;
+        margin: 10px 0;
+        color: var(--text-color);
+    }
+    
+    .post-meta {
+        font-size: 12px;
+        color: var(--light-text);
+        margin-top: auto;
+        padding-top: 8px;
+        border-top: 1px solid #eee;
+    }
+    
+    .archive-indicator {
+        display: inline-block;
+        background-color: var(--warning-color);
+        color: #333;
+        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        margin-right: 5px;
+        vertical-align: middle;
+    }
+    
+    .no-posts {
+        width: 100%;
+        text-align: center;
+        padding: 50px 30px;
+        font-style: italic;
+        color: var(--light-text);
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+</style>
+{{end}}
+
+{{define "content"}}
+<section class="posts">
+    <ul class="list">
+        {{if .Posts}}
+            {{range .Posts}}
+            <li class="post">
+                <a href="/post/{{.ID | urlquery}}">
+                    {{if .ImageURL}}
+                    <img src="{{.ImageURL | html}}" alt="Изображение поста" loading="lazy">
+                    {{else}}
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMTUwIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiPk5vIGltYWdlPC90ZXh0Pjwvc3ZnPg==" alt="Нет изображения">
+                    {{end}}
+                    <h3 class="post-title">
+                        <span class="archive-indicator">Архив</span>
+                        {{.Title | html}}
+                    </h3>
+                    <div class="post-meta">
+                        <span>{{.UserName}}</span> · 
+                        <span>{{.CreatedAt.Format "02.01.2006"}}</span>
+                    </div>
+                </a>
+            </li>
             {{end}}
-        {{end}}
-        
-        {{if lt .CurrentPage .TotalPages}}
-            <a href="?page={{.NextPage}}&limit={{.Limit}}&archived=true">Следующая &raquo;</a>
         {{else}}
-            <span class="disabled">Следующая &raquo;</span>
+            <li class="no-posts">
+                <p>В архиве пока нет постов.</p>
+            </li>
         {{end}}
-    </div>
-</main>
-</body>
-</html>
+    </ul>
+</section>
+
+<!-- Пагинация -->
+<div class="pagination">
+    {{if gt .CurrentPage 1}}
+        <a href="?page={{.PrevPage}}&limit={{.Limit}}&archived=true">&laquo; Предыдущая</a>
+    {{else}}
+        <span class="disabled">&laquo; Предыдущая</span>
+    {{end}}
+    
+    {{range $i := .PageNumbers}}
+        {{if eq $i $.CurrentPage}}
+            <span class="current">{{$i}}</span>
+        {{else}}
+            <a href="?page={{$i}}&limit={{$.Limit}}&archived=true">{{$i}}</a>
+        {{end}}
+    {{end}}
+    
+    {{if lt .CurrentPage .TotalPages}}
+        <a href="?page={{.NextPage}}&limit={{.Limit}}&archived=true">Следующая &raquo;</a>
+    {{else}}
+        <span class="disabled">Следующая &raquo;</span>
+    {{end}}
+</div>
+{{end}}

@@ -1,13 +1,65 @@
 <!-- templates/error.html -->
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Error {{.Code}}</title>
-</head>
-<body>
-<h1>Error {{.Code}} - {{.Message}}</h1>
-<p>Sorry, an error has occurred.</p>
-<a href="javascript:history.back()">Go Back</a> |
-<a href="/">Return to Home Page</a>
-</body>
-</html>
+{{define "styles"}}
+<style>
+    .error-container {
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 30px;
+        text-align: center;
+    }
+    
+    .error-code {
+        font-size: 80px;
+        font-weight: bold;
+        color: var(--error-color);
+        margin: 0;
+        line-height: 1;
+    }
+    
+    .error-message {
+        font-size: 24px;
+        margin: 15px 0 30px;
+    }
+    
+    .error-details {
+        font-size: 14px;
+        color: var(--light-text);
+        border-top: 1px solid var(--border-color);
+        margin-top: 20px;
+        padding-top: 20px;
+    }
+    
+    .error-actions {
+        margin-top: 30px;
+    }
+    
+    .error-actions a {
+        display: inline-block;
+        margin: 0 10px;
+        text-decoration: none;
+    }
+</style>
+{{end}}
+
+{{define "content"}}
+<div class="error-container">
+    <h1 class="error-code">{{.Code}}</h1>
+    <h2 class="error-message">{{.Message}}</h2>
+    <p>Извините, произошла ошибка.</p>
+    
+    <div class="error-actions">
+        <a href="javascript:history.back()" class="button">← Вернуться назад</a>
+        <a href="/" class="button">На главную</a>
+    </div>
+    
+    {{if .Details}}
+    <div class="error-details">
+        <p>Технические детали:</p>
+        <pre>{{.Details}}</pre>
+    </div>
+    {{end}}
+</div>
+{{end}}

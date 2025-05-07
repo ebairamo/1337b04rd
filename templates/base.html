@@ -1,0 +1,204 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>{{if .Title}}{{.Title}} - 1337b04rd{{else}}1337b04rd{{end}}</title>
+    <style>
+        /* Общие стили для всех страниц */
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #e6e9f5;
+            --text-color: #333;
+            --light-text: #777;
+            --border-color: #ddd;
+            --success-color: #3ca82b;
+            --error-color: #e74c3c;
+            --warning-color: #f1c40f;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px 0;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .site-title {
+            font-size: 28px;
+            margin-bottom: 5px;
+            color: var(--text-color);
+        }
+        
+        .page-title {
+            font-size: 22px;
+            color: var(--light-text);
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        nav {
+            margin: 10px 0;
+        }
+
+        nav a {
+            display: inline-block;
+            margin: 0 10px;
+            text-decoration: none;
+            color: var(--primary-color);
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        nav a:hover {
+            background-color: rgba(74, 144, 226, 0.1);
+            text-decoration: underline;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+            background-color: #fff;
+            border-top: 1px solid var(--border-color);
+            color: var(--light-text);
+            font-size: 14px;
+        }
+        
+        /* Стили для кнопок */
+        .button {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            transition: background-color 0.3s;
+        }
+        
+        .button:hover {
+            background-color: #357ab8;
+        }
+        
+        /* Стили для форм */
+        form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        /* Стили для сообщений */
+        .message {
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        
+        .success {
+            background-color: rgba(60, 168, 43, 0.2);
+            border-left: 4px solid var(--success-color);
+        }
+        
+        .error {
+            background-color: rgba(231, 76, 60, 0.2);
+            border-left: 4px solid var(--error-color);
+        }
+        
+        .warning {
+            background-color: rgba(241, 196, 15, 0.2);
+            border-left: 4px solid var(--warning-color);
+        }
+        
+        /* Стили для пагинации */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            padding: 10px;
+        }
+        
+        .pagination a, .pagination span {
+            display: inline-block;
+            padding: 8px 16px;
+            margin: 0 4px;
+            text-decoration: none;
+            color: var(--text-color);
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        
+        .pagination a:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .pagination .current {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        .pagination .disabled {
+            color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+    {{block "styles" .}}{{end}}
+</head>
+<body>
+<header>
+    <h1 class="site-title">1337b04rd</h1>
+    <h2 class="page-title">{{if .PageTitle}}{{.PageTitle}}{{else}}Доска сообщений{{end}}</h2>
+    <nav>
+        [<a href="/catalog.html">Каталог</a>] |
+        [<a href="/create-post.html">Создать пост</a>] |
+        [<a href="/archive.html">Архив</a>]
+    </nav>
+</header>
+<main>
+    {{block "content" .}}{{end}}
+</main>
+<footer>
+    <p>1337b04rd &copy; {{.CurrentYear}} · <a href="/api/monitoring/health">Статус системы</a></p>
+</footer>
+</body>
+</html>

@@ -1,74 +1,80 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Post</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #E6E9F5;
-        }
+{{define "styles"}}
+<style>
+    .create-post-form {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 30px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 16px;
+    }
+    
+    textarea.form-control {
+        min-height: 200px;
+        resize: vertical;
+    }
+    
+    .form-help {
+        margin-top: 5px;
+        font-size: 12px;
+        color: var(--light-text);
+    }
+    
+    .submit-container {
+        margin-top: 30px;
+        text-align: center;
+    }
+</style>
+{{end}}
 
-        header {
-            text-align: center;
-        }
-
-        main {
-            display: flex;
-            justify-content: center;
-        }
-    </style>
-</head>
-<body>
-<header>
-    <h1>Create a New Post</h1>
-
-    <nav>
-        <!-- Navigation links -->
-        [<a href="catalog.html">Catalog</a>] |
-        [<a href="archive.html">Archive</a>]
-    </nav>
-    <br>
-</header>
-<main>
+{{define "content"}}
+<div class="create-post-form">
+    <h2>Создать новый пост</h2>
     <form action="/submit-post" method="POST" enctype="multipart/form-data">
-        <table class="postForm">
-            <tbody>
-            <tr>
-                <td>Name</td>
-                <td>
-                    <input name="name" type="text" placeholder="Anonymous">
-                </td>
-            </tr>
-            <tr>
-                <td>Subject</td>
-                <td>
-                    <input name="subject" type="text">
-                </td>
-            </tr>
-            <tr>
-                <td>Comment</td>
-                <td>
-                    <textarea name="comment" cols="48" rows="4" placeholder="Write your post here..."></textarea>
-                </td>
-            </tr>
-            <tr>
-                <td>File</td>
-                <td>
-                    <input name="file" type="file">
-                </td>
-            </tr>
-            <tr>
-                <td colspan="2">
-                    <input type="submit" value="Post">
-                </td>
-            </tr>
-            </tbody>
-        </table>
+        <div class="form-group">
+            <label for="name">Имя</label>
+            <input type="text" id="name" name="name" class="form-control" placeholder="Anonymous">
+            <p class="form-help">Оставьте пустым для использования имени по умолчанию</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="subject">Заголовок</label>
+            <input type="text" id="subject" name="subject" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="comment">Содержание</label>
+            <textarea id="comment" name="comment" class="form-control" placeholder="Напишите ваш пост здесь..." required></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="file">Изображение (необязательно)</label>
+            <input type="file" id="file" name="file" class="form-control" accept="image/*">
+            <p class="form-help">Поддерживаемые форматы: JPG, PNG, GIF, WEBP. Максимальный размер: 5 МБ</p>
+        </div>
+        
+        <div class="submit-container">
+            <button type="submit" class="button">Опубликовать</button>
+        </div>
     </form>
-</main>
-</body>
-</html>
+</div>
+{{end}}
