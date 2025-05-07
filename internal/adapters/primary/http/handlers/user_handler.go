@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"1337b04rd/internal/domain/services"
+	"1337b04rd/internal/ports/service"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -11,11 +11,11 @@ import (
 
 // UserHandler обрабатывает HTTP запросы для пользователей
 type UserHandler struct {
-	userService *services.UserService
+	userService service.UserService
 }
 
 // NewUserHandler создает новый обработчик пользователей
-func NewUserHandler(userService *services.UserService) *UserHandler {
+func NewUserHandler(userService service.UserService) *UserHandler {
 	return &UserHandler{
 		userService: userService,
 	}

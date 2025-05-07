@@ -36,7 +36,7 @@ func (s *ArchiverService) archiveJob(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			s.processArchiving(ctx)
+			s.ProcessArchiving(ctx)
 		case <-ctx.Done():
 			slog.Info("Задача архивирования остановлена")
 			return
@@ -45,7 +45,8 @@ func (s *ArchiverService) archiveJob(ctx context.Context) {
 }
 
 // processArchiving выполняет один цикл проверки и архивирования постов
-func (s *ArchiverService) processArchiving(ctx context.Context) {
+// Экспортирован для тестирования
+func (s *ArchiverService) ProcessArchiving(ctx context.Context) {
 	slog.Debug("Запуск проверки постов для архивации")
 
 	// Получаем все неархивированные посты

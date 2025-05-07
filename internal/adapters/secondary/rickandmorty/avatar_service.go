@@ -20,6 +20,8 @@ type AvatarService struct {
 	client   *http.Client
 	usedIDs  map[int]bool
 	maxRetry int
+	baseURL  string // для тестирования
+	maxID    int    // для тестирования
 }
 
 // Character представляет персонажа из API Rick and Morty
@@ -48,23 +50,48 @@ func NewAvatarService() *AvatarService {
 	}
 }
 
+// NewAvatarServiceWithBaseURL создает новый экземпляр сервиса аватаров с указанным URL API
+// Используется для тестирования
+func NewAvatarServiceWithBaseURL(baseURL string, maxID int) *AvatarService {
+	return &AvatarService{
+		client: &http.Client{
+			Timeout: 10 * time.Second,
+		},
+		usedIDs:  make(map[int]bool),
+		maxRetry: 5,
+		baseURL:  baseURL,
+		maxID:    maxID,
+	}
+}
+
 // GetRandomAvatar возвращает URL случайного аватара
 func (s *AvatarService) GetRandomAvatar(ctx context.Context) (string, string, error) {
 	// Инициализируем генератор случайных чисел
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
+	// Используем baseURL и maxID из структуры, если они установлены, иначе используем константы
+	baseURL := BaseURL
+	if s.baseURL != "" {
+		baseURL = s.baseURL
+	}
+
+	maxID := MaxCharacterID
+	if s.maxID > 0 {
+		maxID = s.maxID
+	}
+
 	// Пробуем получить аватар несколько раз в случае ошибки
 	for i := 0; i < s.maxRetry; i++ {
 		// Генерируем случайный ID персонажа
-		characterID := rnd.Intn(MaxCharacterID) + 1
+		characterID := rnd.Intn(maxID) + 1
 
 		// Проверяем, не был ли уже использован этот ID
-		if len(s.usedIDs) < MaxCharacterID && s.usedIDs[characterID] {
+		if len(s.usedIDs) < maxID && s.usedIDs[characterID] {
 			continue // Если ID уже использовался, пробуем другой
 		}
 
 		// Формируем URL для запроса
-		url := fmt.Sprintf("%s/character/%d", BaseURL, characterID)
+		url := fmt.Sprintf("%s/character/%d", baseURL, characterID)
 
 		// Создаем новый HTTP запрос
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)

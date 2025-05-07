@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"1337b04rd/internal/domain/models"
-	"1337b04rd/internal/domain/services"
+	"1337b04rd/internal/ports/service"
 )
 
 const (
@@ -24,11 +24,11 @@ const UserContextKey userContextKey = "user"
 
 // AuthMiddleware представляет собой middleware для аутентификации
 type AuthMiddleware struct {
-	userService *services.UserService
+	userService service.UserService
 }
 
 // NewAuthMiddleware создает новый экземпляр middleware аутентификации
-func NewAuthMiddleware(userService *services.UserService) *AuthMiddleware {
+func NewAuthMiddleware(userService service.UserService) *AuthMiddleware {
 	return &AuthMiddleware{
 		userService: userService,
 	}
