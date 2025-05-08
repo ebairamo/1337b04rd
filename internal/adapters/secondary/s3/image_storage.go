@@ -46,7 +46,7 @@ func NewImageStorage() external.ImageStorage {
 	// Получаем хост и порт S3 из переменных окружения или используем значения по умолчанию
 	host := os.Getenv("S3_HOST")
 	if host == "" {
-		host = "localhost" // Используем localhost для локального тестирования
+		host = "s3" // Используем имя сервиса в Docker
 	}
 
 	port := os.Getenv("S3_PORT")
@@ -117,7 +117,6 @@ func (s *ImageStorage) UploadImage(ctx context.Context, bucketName, objectKey st
 
 	for retry := 0; retry < maxRetries; retry++ {
 		resp, err = s.httpClient.Do(req)
-
 		if err != nil {
 			// Если это не последняя попытка, попробуем еще раз
 			if retry < maxRetries-1 {
@@ -139,7 +138,8 @@ func (s *ImageStorage) UploadImage(ctx context.Context, bucketName, objectKey st
 	}
 
 	// Возвращаем URL для доступа к изображению
-	imageURL := fmt.Sprintf("%s/%s/%s", s.baseURL, bucketName, objectKey)
+	// Используем localhost вместо имени сервиса s3 для доступа из браузера
+	imageURL := fmt.Sprintf("http://localhost:9000/%s/%s", bucketName, objectKey)
 	slog.Info("Изображение успешно загружено", "bucket", bucketName, "key", objectKey, "url", imageURL, "type", fileType)
 	return imageURL, nil
 }
@@ -161,7 +161,6 @@ func (s *ImageStorage) GetImage(ctx context.Context, bucketName, objectKey strin
 
 	for retry := 0; retry < maxRetries; retry++ {
 		resp, err = s.httpClient.Do(req)
-
 		if err != nil {
 			// Если это не последняя попытка, попробуем еще раз
 			if retry < maxRetries-1 {
@@ -222,7 +221,6 @@ func (s *ImageStorage) DeleteImage(ctx context.Context, bucketName, objectKey st
 
 	for retry := 0; retry < maxRetries; retry++ {
 		resp, err = s.httpClient.Do(req)
-
 		if err != nil {
 			if retry < maxRetries-1 {
 				slog.Warn("Ошибка соединения при удалении изображения, повторная попытка", "retry", retry+1, "error", err)
@@ -268,7 +266,6 @@ func (s *ImageStorage) createBucket(bucketName string) error {
 
 	for retry := 0; retry < maxRetries; retry++ {
 		resp, err = s.httpClient.Do(req)
-
 		if err != nil {
 			if retry < maxRetries-1 {
 				slog.Warn("Ошибка соединения при создании бакета, повторная попытка", "retry", retry+1, "error", err)

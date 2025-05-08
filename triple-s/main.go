@@ -10,15 +10,16 @@ import (
 )
 
 var (
-	BaseDir string
-	Port    string // Порт по умолчанию
-	Help    bool
+	BaseDir      string
+	Port         string // Порт по умолчанию
+	Help         bool
+	SkipDirCheck bool
 )
 
 func init() {
 	flag.StringVar(&BaseDir, "dir", "data", "DIRECTORY")
 	flag.StringVar(&Port, "port", "8080", "PORT")
-	flag.BoolVar(&Help, "help", false, "HELP")
+	flag.BoolVar(&SkipDirCheck, "no-dir-check", false, "Skip directory path check")
 	flag.Parse()
 }
 
@@ -28,13 +29,7 @@ func main() {
 		printHelp()
 		return
 	}
-	projectPath, _ := os.Getwd()
-	if IsDirPathInside(projectPath, BaseDir) {
-		initBaseDir()
-	} else {
-		fmt.Println("Файл находится вне проекта")
-		os.Exit(1)
-	}
+	initBaseDir()
 	// projectPath, _ := os.Getwd()
 	// print(projectPath)
 	// currentDir := filepath.Join(projectPath, "data")
@@ -68,7 +63,6 @@ func main() {
 
 // Инициализация базовой директории для хранения
 func initBaseDir() {
-	// print(BaseDir)
 	if err := os.MkdirAll(BaseDir, os.ModePerm); err != nil {
 		fmt.Println("Не удалось создать базовую директорию:", err)
 		os.Exit(1)

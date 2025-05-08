@@ -21,13 +21,25 @@ services:
     build: .
     ports:
       - "8081:8081"
-      - "40000:40000"
     depends_on:
       db:
         condition: service_healthy
+      s3:
+        condition: service_started
     environment:
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: elite_user
       DB_PASSWORD: elite_pass
       DB_NAME: eliteboard_db
+      S3_HOST: s3
+      S3_PORT: 9000
+
+  s3:
+    build: 
+      context: ./triple-s
+      dockerfile: Dockerfile
+    volumes:
+      - ./s3-data:/data
+    ports:
+      - "9000:9000"

@@ -44,6 +44,13 @@ type PaginationData struct {
 	Limit       int
 }
 
+// FixImageURL преобразует URL изображения для доступа из браузера
+
+func FixImageURL(url string) string {
+	// Заменяем http://s3:9000/ на /s3-proxy/
+	return strings.Replace(url, "http://s3:9000", "http://localhost:9000", 1)
+}
+
 // HandleGetPost обрабатывает GET запрос для получения поста
 func (h *PostHandler) HandleGetPost(w http.ResponseWriter, r *http.Request) {
 	// Получаем пользователя из контекста
@@ -70,6 +77,11 @@ func (h *PostHandler) HandleGetPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Исправляем URL изображения для доступа из браузера
+	if post.ImageURL != "" {
+		post.ImageURL = FixImageURL(post.ImageURL)
+	}
+
 	// Проверяем, нужно ли вернуть JSON или HTML
 	contentType := r.Header.Get("Accept")
 	if strings.Contains(contentType, "application/json") {
@@ -85,12 +97,19 @@ func (h *PostHandler) HandleGetPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Вместо создания тестовых комментариев
+		// Получаем комментарии к посту
 		comments, err := h.commentService.GetCommentsByPostID(r.Context(), post.ID, 50, 0)
 		if err != nil {
 			slog.Error("Ошибка при получении комментариев", "post_id", post.ID, "error", err)
 			http.Error(w, "Ошибка при получении комментариев", http.StatusInternalServerError)
 			return
+		}
+
+		// Исправляем URL изображений в комментариях
+		for i := range comments {
+			if comments[i].ImageURL != "" {
+				comments[i].ImageURL = FixImageURL(comments[i].ImageURL)
+			}
 		}
 
 		// Создаем данные для шаблона
@@ -154,6 +173,19 @@ func (h *PostHandler) HandleGetAllPosts(w http.ResponseWriter, r *http.Request) 
 		slog.Error("Ошибка получения списка постов", "error", err)
 		http.Error(w, "Не удалось получить список постов", http.StatusInternalServerError)
 		return
+	}
+
+	// Исправляем URL изображений для всех постов
+	for i := range posts {
+		if posts[i].ImageURL != "" {
+			posts[i].ImageURL = FixImageURL(posts[i].ImageURL)
+		}
+	}
+	// Исправляем URL изображений для всех постов
+	for i := range posts {
+		if posts[i].ImageURL != "" {
+			posts[i].ImageURL = FixImageURL(posts[i].ImageURL)
+		}
 	}
 
 	// Используем предполагаемое общее количество постов для демонстрации

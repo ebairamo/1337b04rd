@@ -6,6 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -130,6 +132,46 @@ func RegisterRoutes(mux *http.ServeMux, db *sql.DB) {
 		r.URL.RawQuery = q.Encode()
 		postHandler.HandleGetAllPosts(w, r)
 	})))
+
+	// Прокси для изображений из S3
+	mux.Handle("/s3-proxy/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Получаем путь к изображению
+		path := strings.TrimPrefix(r.URL.Path, "/s3-proxy/")
+
+		// Формируем URL для запроса к S3
+		s3URL := fmt.Sprintf("http://s3:9000/%s", path)
+
+		// Создаем новый запрос к S3
+		req, err := http.NewRequestWithContext(r.Context(), "GET", s3URL, nil)
+		if err != nil {
+			slog.Error("Ошибка создания запроса к S3", "error", err)
+			http.Error(w, "Ошибка получения изображения", http.StatusInternalServerError)
+			return
+		}
+
+		// Выполняем запрос
+		client := http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			slog.Error("Ошибка при запросе к S3", "error", err)
+			http.Error(w, "Ошибка получения изображения", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		// Копируем заголовки ответа
+		for key, values := range resp.Header {
+			for _, value := range values {
+				w.Header().Add(key, value)
+			}
+		}
+
+		// Устанавливаем статус ответа
+		w.WriteHeader(resp.StatusCode)
+
+		// Копируем тело ответа
+		io.Copy(w, resp.Body)
+	}))
 
 	// Добавление маршрута для получения статистики архивации
 	mux.Handle("/api/monitoring/archiver", withAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
