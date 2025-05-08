@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -296,25 +295,12 @@ func (s *ImageStorage) GenerateObjectKey(originalFilename string) string {
 	// Получаем расширение файла
 	extension := filepath.Ext(originalFilename)
 	if extension == "" {
-		// Пытаемся определить расширение из имени файла
-		dotIndex := strings.LastIndex(originalFilename, ".")
-		if dotIndex != -1 {
-			extension = originalFilename[dotIndex:]
-		} else {
-			// Расширение по умолчанию
-			extension = ".jpg"
-		}
+		// Если расширение отсутствует, используем .jpg по умолчанию
+		extension = ".jpg"
 	}
 
 	// Нормализуем расширение, приводя к нижнему регистру
 	extension = strings.ToLower(extension)
-
-	// Проверяем расширение на соответствие MIME-типу изображения
-	mimeType := mime.TypeByExtension(extension)
-	if mimeType == "" || !strings.HasPrefix(mimeType, "image/") {
-		// Если расширение не соответствует изображению, используем .jpg
-		extension = ".jpg"
-	}
 
 	return fmt.Sprintf("%d%s", timestamp, extension)
 }
